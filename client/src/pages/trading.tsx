@@ -47,7 +47,7 @@ export default function TradingPage() {
         }
       }
     }
-  }, [lastMessage, state.selectedAsset, updateState]);
+  }, [lastMessage]);
 
   const handleAssetSelect = (asset: Asset) => {
     updateState({ selectedAsset: asset });

@@ -34,7 +34,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new trade
   app.post("/api/trades", async (req, res) => {
     try {
-      const validated = insertTradeSchema.parse(req.body);
+      // Preprocess: convert expiry string to Date
+      const processedBody = {
+        ...req.body,
+        expiryTime: typeof req.body.expiryTime === 'string' ? new Date(req.body.expiryTime) : req.body.expiryTime
+      };
+      const validated = insertTradeSchema.parse(processedBody);
       const trade = await storage.createTrade(validated);
       res.json(trade);
     } catch (error) {
