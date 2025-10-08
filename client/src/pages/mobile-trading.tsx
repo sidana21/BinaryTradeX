@@ -231,44 +231,44 @@ export default function MobileTradingPage() {
   const profit = (tradeAmount * payout / 100).toFixed(2);
 
   return (
-    <div className="h-screen w-screen bg-[#0f1118] flex flex-col overflow-hidden">
+    <div className="h-screen w-screen bg-[#0a0e1a] flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-[#1a1e2e] px-4 py-3 flex items-center justify-between border-b border-gray-800">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-gray-700 rounded-full"></div>
+      <div className="bg-[#14192a] px-4 py-2.5 flex items-center justify-between border-b border-gray-900">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 bg-gray-600 rounded-full"></div>
           <div>
-            <div className="text-gray-400 text-xs">QT Demo</div>
-            <div className="text-white text-lg font-bold">
-              ${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="text-gray-500 text-[10px] uppercase">QT Demo</div>
+            <div className="text-white text-base font-semibold">
+              ${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] text-gray-500">USD</span>
             </div>
           </div>
         </div>
-        <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
-          <DollarSign className="text-green-500 w-6 h-6" />
+        <div className="w-11 h-11 bg-green-600/20 rounded-lg flex items-center justify-center">
+          <div className="text-green-500 text-lg font-bold">💼</div>
         </div>
       </div>
 
       {/* Asset Info */}
-      <div className="bg-[#1a1e2e] px-4 py-2 border-b border-gray-800">
-        <div className="flex items-center justify-between">
+      <div className="bg-[#14192a] px-4 py-2 border-b border-gray-900">
+        <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <button 
-              className="text-white font-medium text-sm flex items-center gap-1"
+              className="text-white font-medium text-sm flex items-center gap-1 bg-[#1a2033] px-2 py-1 rounded"
               data-testid="button-asset-selector"
             >
-              {selectedAsset?.symbol || 'USD/JPY OTC'} ▼
+              {selectedAsset?.symbol || 'USD/JPY OTC'} <span className="text-[10px]">▼</span>
             </button>
           </div>
-          <div className="text-gray-400 text-xs flex items-center gap-2">
-            <Clock className="w-3 h-3" />
-            Délai d'expiration {timeRemaining}
+          <div className="text-gray-500 text-[10px] flex items-center gap-1">
+            <div className="w-2.5 h-2.5 bg-gray-700 rounded-sm"></div>
+            Délai d'expiration
           </div>
         </div>
-        <div className="mt-1 flex items-center gap-2">
+        <div className="flex items-center justify-between">
           <div className="text-white text-2xl font-bold" data-testid="text-asset-price">
             ${currentPrice.toFixed(3)}
           </div>
-          <div className="text-green-400 text-sm">↑ 0.23%</div>
+          <div className="text-gray-500 text-xs">{timeRemaining}</div>
         </div>
       </div>
 
@@ -282,46 +282,46 @@ export default function MobileTradingPage() {
       </div>
 
       {/* Trading Controls */}
-      <div className="bg-[#1a1e2e] px-4 py-3 border-t border-gray-800">
+      <div className="bg-[#14192a] px-4 py-3.5 border-t border-gray-900">
         {/* Time and Amount */}
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
-            <div className="text-gray-400 text-xs mb-1">Temps</div>
+            <div className="text-gray-500 text-[11px] mb-1.5">Temps</div>
             <button 
-              className="w-full bg-[#0f1118] text-white px-3 py-2 rounded-lg flex items-center justify-between border border-gray-700"
+              className="w-full bg-[#1a2033] text-white px-3 py-2.5 rounded-lg flex items-center justify-center gap-2 border border-gray-800"
               data-testid="button-time-selector"
             >
-              <Clock className="w-4 h-4" />
+              <Clock className="w-4 h-4 text-gray-400" />
               <span className="text-sm font-medium">00:01:00</span>
             </button>
           </div>
           <div>
-            <div className="text-gray-400 text-xs mb-1">Montant</div>
+            <div className="text-gray-500 text-[11px] mb-1.5">Montant</div>
             <button 
-              className="w-full bg-[#0f1118] text-white px-3 py-2 rounded-lg flex items-center justify-between border border-gray-700"
+              className="w-full bg-[#1a2033] text-white px-3 py-2.5 rounded-lg flex items-center justify-center gap-2 border border-gray-800"
               data-testid="button-amount-selector"
             >
-              <DollarSign className="w-4 h-4" />
+              <DollarSign className="w-4 h-4 text-gray-400" />
               <span className="text-sm font-medium">{tradeAmount}</span>
             </button>
           </div>
         </div>
 
         {/* Payout and Profit */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-4 px-1">
           <div>
-            <div className="text-gray-400 text-xs">Paiement</div>
-            <div className="text-sm" data-testid="text-payout">
-              <span className="text-gray-300">${tradeAmount}</span>
+            <div className="text-gray-500 text-[11px]">Paiement</div>
+            <div className="text-sm mt-0.5" data-testid="text-payout">
+              <span className="text-white">${tradeAmount}</span>
             </div>
           </div>
           <div className="text-center">
-            <div className="text-green-400 text-2xl font-bold">+{payout}%</div>
+            <div className="text-[#4ade80] text-3xl font-bold">+{payout}%</div>
           </div>
           <div className="text-right">
-            <div className="text-gray-400 text-xs">Profit</div>
-            <div className="text-sm" data-testid="text-profit">
-              <span className="text-green-400">+${profit}</span>
+            <div className="text-gray-500 text-[11px]">Profit</div>
+            <div className="text-sm mt-0.5" data-testid="text-profit">
+              <span className="text-[#4ade80]">+${profit}</span>
             </div>
           </div>
         </div>
@@ -331,7 +331,7 @@ export default function MobileTradingPage() {
           <button
             onClick={() => tradeMutation.mutate('CALL')}
             disabled={tradeMutation.isPending}
-            className="bg-gradient-to-b from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-500/30 transition-all active:scale-95"
+            className="bg-[#4ade80] hover:bg-[#3dca6f] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 transition-all active:scale-95"
             data-testid="button-achat"
           >
             <TrendingUp className="w-5 h-5" />
@@ -340,7 +340,7 @@ export default function MobileTradingPage() {
           <button
             onClick={() => tradeMutation.mutate('PUT')}
             disabled={tradeMutation.isPending}
-            className="bg-gradient-to-b from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-red-500/30 transition-all active:scale-95"
+            className="bg-[#fb923c] hover:bg-[#f97316] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all active:scale-95"
             data-testid="button-vente"
           >
             <TrendingDown className="w-5 h-5" />
