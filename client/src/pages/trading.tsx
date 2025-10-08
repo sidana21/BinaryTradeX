@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Link } from 'wouter';
 import { TradingChart } from '@/components/chart/trading-chart';
 import { AssetList } from '@/components/trading/asset-list';
 import { TradingPanel } from '@/components/trading/trading-panel';
@@ -6,6 +7,8 @@ import { TradesPanel } from '@/components/trading/trades-panel';
 import { useTrading } from '@/hooks/use-trading';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { ExternalLink } from 'lucide-react';
 import type { Asset } from '@shared/schema';
 
 export default function TradingPage() {
@@ -116,6 +119,14 @@ export default function TradingPage() {
 
           {/* Account Controls */}
           <div className="flex items-center gap-4">
+            {/* Binomo Link */}
+            <Link href="/binomo">
+              <Button variant="outline" className="gap-2" data-testid="button-binomo">
+                <ExternalLink className="w-4 h-4" />
+                Binomo API
+              </Button>
+            </Link>
+
             {/* Demo/Real Toggle */}
             <div className="flex items-center gap-2 bg-secondary rounded-lg p-1">
               <button

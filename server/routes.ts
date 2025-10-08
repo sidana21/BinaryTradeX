@@ -4,9 +4,93 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { insertTradeSchema } from "@shared/schema";
 import { z } from "zod";
+import axios from "axios";
+
+const BINOMO_SERVICE_URL = process.env.BINOMO_SERVICE_URL || 'http://localhost:5001';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
+
+  // Binomo API proxy endpoints
+  app.get("/api/binomo/health", async (req, res) => {
+    try {
+      const response = await axios.get(`${BINOMO_SERVICE_URL}/health`);
+      res.json(response.data);
+    } catch (error) {
+      res.status(503).json({ error: "Binomo service unavailable" });
+    }
+  });
+
+  app.get("/api/binomo/balance", async (req, res) => {
+    try {
+      const type = req.query.type || 'demo';
+      const response = await axios.get(`${BINOMO_SERVICE_URL}/balance?type=${type}`);
+      res.json(response.data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch balance from Binomo" });
+    }
+  });
+
+  app.get("/api/binomo/assets", async (req, res) => {
+    try {
+      const response = await axios.get(`${BINOMO_SERVICE_URL}/assets`);
+      res.json(response.data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch assets from Binomo" });
+    }
+  });
+
+  app.get("/api/binomo/candles/:assetId", async (req, res) => {
+    try {
+      const { assetId } = req.params;
+      const size = req.query.size || 60;
+      const count = req.query.count || 100;
+      const response = await axios.get(`${BINOMO_SERVICE_URL}/candles/${assetId}?size=${size}&count=${count}`);
+      res.json(response.data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch candles from Binomo" });
+    }
+  });
+
+  app.post("/api/binomo/trade", async (req, res) => {
+    try {
+      const response = await axios.post(`${BINOMO_SERVICE_URL}/trade`, req.body);
+      res.json(response.data);
+    } catch (error: any) {
+      res.status(error.response?.status || 500).json({ 
+        error: error.response?.data?.error || "Failed to execute trade on Binomo" 
+      });
+    }
+  });
+
+  app.get("/api/binomo/trade/check/:tradeId", async (req, res) => {
+    try {
+      const { tradeId } = req.params;
+      const response = await axios.get(`${BINOMO_SERVICE_URL}/trade/check/${tradeId}`);
+      res.json(response.data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to check trade result" });
+    }
+  });
+
+  app.post("/api/binomo/account/switch", async (req, res) => {
+    try {
+      const response = await axios.post(`${BINOMO_SERVICE_URL}/account/switch`, req.body);
+      res.json(response.data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to switch account" });
+    }
+  });
+
+  app.get("/api/binomo/price/:assetId", async (req, res) => {
+    try {
+      const { assetId } = req.params;
+      const response = await axios.get(`${BINOMO_SERVICE_URL}/price/current/${assetId}`);
+      res.json(response.data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch current price" });
+    }
+  });
 
   // Get all assets
   app.get("/api/assets", async (req, res) => {
