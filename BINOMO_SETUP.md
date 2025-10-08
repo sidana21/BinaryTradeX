@@ -4,9 +4,10 @@
 
 ## المعلومات المستخدمة
 
-- **AUTHTOKEN**: `2ba71577-82f7-4751-8902-4de7f0c94831`
-- **DEVICE_ID**: `636d5616769d02c84c488e3353f28789`
-- **DEVICE_TYPE**: `web`
+البيانات محفوظة بشكل آمن في Replit Secrets:
+- **BINOMO_AUTHTOKEN**: محفوظ في Secrets ✓
+- **BINOMO_DEVICE_ID**: محفوظ في Secrets ✓
+- **BINOMO_DEVICE_TYPE**: `web`
 - **PORT**: `5001`
 
 ## كيفية تشغيل خدمة Binomo

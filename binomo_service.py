@@ -10,10 +10,16 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)
 
-# Binomo credentials
-AUTHTOKEN = os.environ.get('BINOMO_AUTHTOKEN', '2ba71577-82f7-4751-8902-4de7f0c94831')
-DEVICE_ID = os.environ.get('BINOMO_DEVICE_ID', '636d5616769d02c84c488e3353f28789')
+# Binomo credentials from environment variables
+AUTHTOKEN = os.environ.get('BINOMO_AUTHTOKEN')
+DEVICE_ID = os.environ.get('BINOMO_DEVICE_ID')
 DEVICE_TYPE = os.environ.get('BINOMO_DEVICE_TYPE', 'web')
+
+if not AUTHTOKEN or not DEVICE_ID:
+    print("⚠️  WARNING: BINOMO_AUTHTOKEN or BINOMO_DEVICE_ID not found in environment variables!")
+    print("Please add them in Replit Secrets or set them as environment variables.")
+    AUTHTOKEN = AUTHTOKEN or 'NOT_SET'
+    DEVICE_ID = DEVICE_ID or 'NOT_SET'
 
 # Global Binomo instance
 binomo_client = None
