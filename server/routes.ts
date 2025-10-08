@@ -39,56 +39,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/binomo/assets", async (req, res) => {
-    // Return common trading assets
-    const assets = [
-      { id: "EURUSD", name: "EUR/USD", symbol: "EUR/USD", category: "forex", isActive: true, payoutRate: 85 },
-      { id: "GBPUSD", name: "GBP/USD", symbol: "GBP/USD", category: "forex", isActive: true, payoutRate: 84 },
-      { id: "USDJPY", name: "USD/JPY", symbol: "USD/JPY", category: "forex", isActive: true, payoutRate: 83 },
-      { id: "AUDUSD", name: "AUD/USD", symbol: "AUD/USD", category: "forex", isActive: true, payoutRate: 84 },
-      { id: "USDCAD", name: "USD/CAD", symbol: "USD/CAD", category: "forex", isActive: true, payoutRate: 83 },
-      { id: "BTCUSD", name: "Bitcoin", symbol: "BTC/USD", category: "crypto", isActive: true, payoutRate: 82 },
-      { id: "ETHUSD", name: "Ethereum", symbol: "ETH/USD", category: "crypto", isActive: true, payoutRate: 81 },
-    ];
-    res.json(assets);
+    // Return OTC assets from storage
+    try {
+      const assets = await storage.getAllAssets();
+      res.json(assets);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch OTC assets" });
+    }
   });
 
   app.get("/api/binomo/candles/:assetId/:timeframe?", async (req, res) => {
     const { assetId, timeframe } = req.params;
     const count = parseInt(req.query.count as string) || 100;
     
-    // Calculate time interval based on timeframe
-    const timeframeMinutes: Record<string, number> = {
-      '1m': 1,
-      '5m': 5,
-      '15m': 15,
-      '1h': 60,
-      '4h': 240,
+    // Extended timeframe support for OTC market (5s to 4h)
+    const timeframeSeconds: Record<string, number> = {
+      '5s': 5,
+      '30s': 30,
+      '1m': 60,
+      '5m': 300,
+      '15m': 900,
+      '30m': 1800,
+      '1h': 3600,
+      '4h': 14400,
     };
-    const intervalMinutes = timeframeMinutes[timeframe || '1m'] || 1;
+    const intervalSeconds = timeframeSeconds[timeframe || '1m'] || 60;
     
+    // Comprehensive base prices for all OTC pairs
     const basePrices: Record<string, number> = {
-      "EURUSD": 1.0850, "GBPUSD": 1.2650, "USDJPY": 149.50,
-      "AUDUSD": 0.6550, "USDCAD": 1.3550,
-      "BTCUSD": 43256.50, "ETHUSD": 2345.67
+      // Forex OTC
+      "EURUSD_OTC": 1.0856, "GBPUSD_OTC": 1.2678, "USDJPY_OTC": 149.85,
+      "AUDUSD_OTC": 0.6550, "USDCAD_OTC": 1.3550, "USDCHF_OTC": 0.8845,
+      "NZDUSD_OTC": 0.6125, "EURJPY_OTC": 162.45, "EURGBP_OTC": 0.8565,
+      "EURAUD_OTC": 1.6580, "EURCHF_OTC": 0.9605, "GBPJPY_OTC": 189.95,
+      "AUDCAD_OTC": 0.8875, "AUDJPY_OTC": 98.15, "CHFJPY_OTC": 169.35,
+      "CADJPY_OTC": 110.65, "NZDJPY_OTC": 91.75, "EURCAD_OTC": 1.4725,
+      "GBPAUD_OTC": 1.9345, "GBPCAD_OTC": 1.7185,
+      // Crypto OTC
+      "BTCUSD_OTC": 43256.50, "ETHUSD_OTC": 2287.80, "LTCUSD_OTC": 72.45,
+      "XRPUSD_OTC": 0.5245, "BNBUSD_OTC": 315.45, "ADAUSD_OTC": 0.4823,
+      // Commodities OTC
+      "GOLD_OTC": 2045.30, "SILVER_OTC": 24.65, "OIL_OTC": 78.45,
+      "COPPER_OTC": 3.8450, "NATURALGAS_OTC": 2.7850,
+      // Indices OTC
+      "SPX_OTC": 4567.20, "NDX_OTC": 15892.50, "DJI_OTC": 36789.45,
+      "DAX_OTC": 16245.75, "CAC40_OTC": 7456.30, "FTSE_OTC": 7625.45,
+      "NIKKEI_OTC": 33145.80
     };
     
     let basePrice = basePrices[assetId] || 1.0;
     const currentTime = Math.floor(Date.now() / 1000);
     const candles = [];
     
+    // Dynamic volatility based on asset type
+    const getVolatility = (id: string): number => {
+      if (id.includes("BTC") || id.includes("ETH")) return 0.025;
+      if (id.includes("LTC") || id.includes("XRP") || id.includes("BNB") || id.includes("ADA")) return 0.02;
+      if (id.includes("GOLD") || id.includes("SILVER") || id.includes("OIL")) return 0.008;
+      if (id.includes("SPX") || id.includes("NDX") || id.includes("DJI") || id.includes("DAX")) return 0.006;
+      return 0.0015; // Forex default
+    };
+    
+    const getDecimals = (id: string): number => {
+      if (id.includes("BTC") || id.includes("ETH")) return 2;
+      if (id.includes("USD") && !id.includes("JPY")) return 5;
+      if (id.includes("JPY")) return 3;
+      if (id.includes("GOLD") || id.includes("SILVER")) return 2;
+      if (id.includes("SPX") || id.includes("NDX") || id.includes("DJI")) return 2;
+      return 4;
+    };
+    
+    const volatility = getVolatility(assetId);
+    const decimals = getDecimals(assetId);
+    
     for (let i = 0; i < count; i++) {
-      const volatility = (assetId.includes("BTC") || assetId.includes("ETH")) ? 0.02 : 0.001;
       const priceChange = (Math.random() - 0.5) * volatility * basePrice;
       const openPrice = basePrice + priceChange;
-      const decimals = (assetId.includes("BTC") || assetId.includes("ETH")) ? 2 : 5;
+      
+      // More realistic high/low generation
+      const highChange = Math.random() * volatility * basePrice * 0.7;
+      const lowChange = Math.random() * volatility * basePrice * 0.7;
+      const closeChange = (Math.random() - 0.5) * volatility * basePrice * 0.8;
       
       candles.push({
-        timestamp: currentTime - (count - i) * intervalMinutes * 60,
+        timestamp: currentTime - (count - i) * intervalSeconds,
         open: parseFloat(openPrice.toFixed(decimals)),
-        high: parseFloat((openPrice + Math.random() * volatility * basePrice).toFixed(decimals)),
-        low: parseFloat((openPrice - Math.random() * volatility * basePrice).toFixed(decimals)),
-        close: parseFloat((openPrice + (Math.random() - 0.5) * volatility * basePrice).toFixed(decimals)),
-        volume: Math.floor(Math.random() * 100000) + 1000
+        high: parseFloat((Math.max(openPrice, openPrice + closeChange) + highChange).toFixed(decimals)),
+        low: parseFloat((Math.min(openPrice, openPrice + closeChange) - lowChange).toFixed(decimals)),
+        close: parseFloat((openPrice + closeChange).toFixed(decimals)),
+        volume: Math.floor(Math.random() * 150000) + 5000
       });
       
       basePrice = candles[candles.length - 1].close;
@@ -134,21 +173,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/binomo/price/:assetId", async (req, res) => {
     const { assetId } = req.params;
-    const basePrices: Record<string, number> = {
-      "EURUSD": 1.0850, "GBPUSD": 1.2650, "USDJPY": 149.50,
-      "AUDUSD": 0.6550, "USDCAD": 1.3550,
-      "BTCUSD": 43256.50, "ETHUSD": 2345.67
-    };
     
-    const basePrice = basePrices[assetId] || 1.0;
-    const price = basePrice + (Math.random() - 0.5) * 0.01 * basePrice;
-    const decimals = (assetId.includes("BTC") || assetId.includes("ETH")) ? 2 : 5;
-    
-    res.json({
-      asset_id: assetId,
-      price: parseFloat(price.toFixed(decimals)),
-      timestamp: Math.floor(Date.now() / 1000)
-    });
+    // Get current price from storage
+    try {
+      const asset = await storage.getAsset(assetId);
+      if (!asset) {
+        return res.status(404).json({ message: "Asset not found" });
+      }
+      
+      res.json({
+        asset_id: assetId,
+        price: parseFloat(asset.currentPrice),
+        timestamp: Math.floor(Date.now() / 1000)
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch price" });
+    }
   });
 
   // Get all assets
