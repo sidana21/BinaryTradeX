@@ -90,205 +90,211 @@ export default function TradingPage() {
   const currentBalance = state.isDemoAccount ? state.demoBalance : state.realBalance;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Header - Mobile Optimized */}
-      <header className="bg-card border-b border-border px-3 md:px-4 py-2 md:py-3 sticky top-0 z-50">
-        <div className="flex items-center justify-between gap-2">
-          {/* Left - Menu & Logo */}
-          <div className="flex items-center gap-2">
-            {/* Mobile Menu - Assets */}
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsAssetsOpen(true)}
-              className="lg:hidden"
-              data-testid="button-open-assets"
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-            
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-lg flex items-center justify-center">
-                <i className="fas fa-chart-line text-lg md:text-xl text-primary-foreground"></i>
-              </div>
-              <h1 className="text-base md:text-xl font-bold hidden sm:block">منصة OTC</h1>
-            </div>
-          </div>
-
-          {/* Center - Current Asset (Mobile Optimized) */}
-          {state.selectedAsset && (
-            <button
-              onClick={() => setIsAssetsOpen(true)}
-              className="flex items-center gap-2 md:gap-4 bg-secondary px-2 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-secondary/80 transition-colors"
-              data-testid="button-current-asset"
-            >
-              <div className="flex items-center gap-1 md:gap-2">
-                <span className="text-xs md:text-sm text-muted-foreground hidden sm:inline">الأصل:</span>
-                <span className="font-semibold text-sm md:text-lg">{state.selectedAsset.name}</span>
-              </div>
-              <div className="flex items-center gap-1 md:gap-2">
-                <span className="font-mono text-base md:text-xl font-bold">{state.selectedAsset.currentPrice}</span>
-                <span className={`text-xs md:text-sm flex items-center gap-0.5 ${
-                  parseFloat(state.selectedAsset.priceChange || '0') >= 0 ? 'text-success' : 'text-destructive'
-                }`}>
-                  <i className={`fas fa-arrow-${parseFloat(state.selectedAsset.priceChange || '0') >= 0 ? 'up' : 'down'} text-xs`}></i>
-                  <span className="hidden sm:inline">{state.selectedAsset.priceChangePercent}%</span>
-                </span>
-              </div>
+    <div className="min-h-screen bg-[#0a0e27] text-foreground flex flex-col">
+      {/* Pocket Option Style Header - Mobile First */}
+      <header className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2 sticky top-0 z-50">
+        <div className="flex items-center justify-between">
+          {/* Left - User Avatar & Gift */}
+          <div className="flex items-center gap-3">
+            <button className="w-9 h-9 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+              <i className="fas fa-user text-gray-300 text-sm"></i>
             </button>
-          )}
-
-          {/* Right - Account Controls (Mobile Optimized) */}
-          <div className="flex items-center gap-1 md:gap-3">
-            {/* Balance Display */}
-            <div className="flex items-center gap-1.5 md:gap-2 bg-secondary px-2 md:px-4 py-1.5 md:py-2 rounded-lg">
-              <i className="fas fa-wallet text-accent text-sm md:text-base"></i>
-              <span className="font-mono font-bold text-sm md:text-lg">
-                ${currentBalance.toFixed(2)}
-              </span>
-            </div>
-
-            {/* Demo/Real Toggle - Hidden on very small screens */}
-            <div className="hidden sm:flex items-center gap-1 bg-secondary rounded-lg p-0.5 md:p-1">
-              <button
-                onClick={toggleAccount}
-                className={`px-2 md:px-4 py-1 md:py-2 rounded-md font-medium text-xs md:text-sm transition-all ${
-                  state.isDemoAccount
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-                data-testid="button-demo-account"
-              >
-                تجريبي
-              </button>
-              <button
-                onClick={toggleAccount}
-                className={`px-2 md:px-4 py-1 md:py-2 rounded-md font-medium text-xs md:text-sm transition-all ${
-                  !state.isDemoAccount
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-                data-testid="button-real-account"
-              >
-                حقيقي
-              </button>
-            </div>
-
-            {/* Mobile Trade Button */}
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setIsTradingOpen(true)}
-              className="md:hidden"
-              data-testid="button-open-trade"
-            >
-              تداول
-            </Button>
+            <button className="w-9 h-9 rounded-lg bg-[#1a1f3a] flex items-center justify-center">
+              <i className="fas fa-gift text-blue-400"></i>
+            </button>
           </div>
+
+          {/* Center - Account Type & Balance */}
+          <div className="flex flex-col items-center">
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <span>{state.isDemoAccount ? 'OT Demo' : 'حساب حقيقي'}</span>
+              <span className="text-gray-500">USD</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold text-white">
+                ${currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <button className="text-blue-400" onClick={toggleAccount}>
+                <i className="fas fa-sync-alt text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* Right - Wallet */}
+          <button className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+            <i className="fas fa-wallet text-emerald-400 text-xl"></i>
+          </button>
         </div>
       </header>
 
-      <div className="flex h-[calc(100vh-73px)]">
-        {/* Left Sidebar - Asset List */}
-        <aside className="w-80 bg-card border-l border-border overflow-y-auto hidden lg:block">
-          <AssetList
-            assets={assets}
-            selectedAsset={state.selectedAsset}
-            onAssetSelect={handleAssetSelect}
-            isLoading={assetsLoading}
-          />
-        </aside>
-
-        {/* Main Content - Chart */}
-        <main className="flex-1 flex flex-col bg-background overflow-hidden">
-          <div className="flex-1 p-1 md:p-4">
-            <TradingChart
-              asset={state.selectedAsset}
-              timeframe={state.selectedTimeframe}
-              onTimeframeChange={(timeframe) => updateState({ selectedTimeframe: timeframe })}
-              openTrades={openTrades}
-              tradeHistory={tradeHistory}
-            />
+      {/* Asset Selector Bar */}
+      <div className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2">
+        <div className="flex items-center justify-between">
+          <button 
+            onClick={() => setIsAssetsOpen(true)}
+            className="flex items-center gap-2 text-white font-medium"
+            data-testid="button-select-asset"
+          >
+            <span className="text-base">{state.selectedAsset?.name || 'اختر زوج'}</span>
+            <i className="fas fa-chevron-down text-xs text-gray-400"></i>
+          </button>
+          
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-gray-500">
+              {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} UTC+1
+            </span>
+            <button className="text-gray-400">
+              <i className="fas fa-ellipsis-h"></i>
+            </button>
           </div>
-
-          {/* Bottom Trades Panel - Hidden on small mobile */}
-          <div className="hidden md:block">
-            <TradesPanel
-              openTrades={openTrades}
-              tradeHistory={tradeHistory}
-              assets={assets}
-              onCloseTrade={closeTrade}
-              isClosing={isClosing}
-            />
+        </div>
+        
+        {/* Current Price */}
+        {state.selectedAsset && (
+          <div className="mt-1">
+            <span className="text-2xl font-bold text-white">{state.selectedAsset.currentPrice}</span>
           </div>
-        </main>
-
-        {/* Right Sidebar - Trading Panel (Desktop Only) */}
-        <aside className="w-96 bg-card border-r border-border p-4 overflow-y-auto hidden md:block">
-          <TradingPanel
-            selectedAsset={state.selectedAsset}
-            tradeAmount={state.tradeAmount}
-            timeframe={state.selectedTimeframe}
-            onAmountChange={(amount) => updateState({ tradeAmount: amount })}
-            onTimeframeChange={(timeframe) => updateState({ selectedTimeframe: timeframe })}
-            onExecuteTrade={handleExecuteTrade}
-            isExecuting={isExecuting}
-            balance={currentBalance}
-            isDemoAccount={state.isDemoAccount}
-          />
-        </aside>
+        )}
       </div>
 
-      {/* Mobile Drawers */}
-      {/* Assets Drawer */}
+      {/* Main Chart Area - Full Width */}
+      <div className="flex-1 overflow-hidden bg-[#0a0e27]">
+        <TradingChart
+          asset={state.selectedAsset}
+          timeframe={state.selectedTimeframe}
+          onTimeframeChange={(timeframe) => updateState({ selectedTimeframe: timeframe })}
+          openTrades={openTrades}
+          tradeHistory={tradeHistory}
+        />
+      </div>
+
+      {/* Bottom Trading Panel - Exact Pocket Option Style */}
+      <div className="bg-[#0f1535] border-t border-[#1a1f3a] px-3 py-3 space-y-2.5">
+        {/* Time & Amount Row */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Time - Temps */}
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">Temps</label>
+            <div className="bg-[#1a1f3a] rounded-lg px-3 py-2.5 flex items-center justify-between">
+              <span className="text-white font-medium text-sm">00:01:00</span>
+              <i className="far fa-clock text-gray-400 text-sm"></i>
+            </div>
+          </div>
+          
+          {/* Amount - Montant */}
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">Montant</label>
+            <div className="bg-[#1a1f3a] rounded-lg px-3 py-2.5 flex items-center justify-between">
+              <input
+                type="number"
+                value={state.tradeAmount}
+                onChange={(e) => updateState({ tradeAmount: parseFloat(e.target.value) || 10 })}
+                className="bg-transparent text-white font-medium w-full outline-none text-sm"
+                data-testid="input-trade-amount"
+              />
+              <i className="fas fa-dollar-sign text-gray-400 text-xs"></i>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment & Profit Row - Paiement & Profit */}
+        <div className="flex items-center justify-between px-1 py-1">
+          <div className="text-left">
+            <div className="text-xs text-gray-400">Paiement</div>
+            <div className="text-white font-medium text-sm">${(state.tradeAmount * 1.92).toFixed(2)}</div>
+          </div>
+          
+          <div className="text-center">
+            <div className="text-3xl font-bold text-emerald-400">+92%</div>
+          </div>
+          
+          <div className="text-right">
+            <div className="text-xs text-gray-400">Profit</div>
+            <div className="text-emerald-400 font-medium text-sm">+${(state.tradeAmount * 0.92).toFixed(2)}</div>
+          </div>
+        </div>
+
+        {/* Trade Buttons - ACHAT & VENTE */}
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <button
+            onClick={() => handleExecuteTrade('CALL')}
+            disabled={!state.selectedAsset || isExecuting}
+            className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-500/50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 text-base transition-colors uppercase"
+            data-testid="button-call"
+          >
+            <i className="fas fa-arrow-up text-lg"></i>
+            <span>ACHAT</span>
+          </button>
+          
+          <button
+            onClick={() => handleExecuteTrade('PUT')}
+            disabled={!state.selectedAsset || isExecuting}
+            className="bg-red-500 hover:bg-red-600 disabled:bg-red-500/50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2 text-base transition-colors uppercase"
+            data-testid="button-put"
+          >
+            <i className="fas fa-arrow-down text-lg"></i>
+            <span>VENTE</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom Navigation Bar - Exact Pocket Option Labels */}
+      <nav className="bg-[#0f1535] border-t border-[#1a1f3a] px-2 py-2 flex items-center justify-around">
+        <button 
+          className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
+          data-testid="nav-transactions"
+        >
+          <i className="fas fa-history text-base"></i>
+          <span className="text-[9px]">Transacti...</span>
+        </button>
+        
+        <button 
+          className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
+          data-testid="nav-signals"
+        >
+          <i className="fas fa-signal text-base"></i>
+          <span className="text-[9px]">Signaux</span>
+        </button>
+        
+        <button 
+          onClick={() => setIsAssetsOpen(true)}
+          className="flex flex-col items-center gap-1 py-1 px-2 text-blue-400"
+          data-testid="nav-trading"
+        >
+          <i className="fas fa-chart-bar text-base"></i>
+          <span className="text-[9px]">Trading s.</span>
+        </button>
+        
+        <button 
+          className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
+          data-testid="nav-community"
+        >
+          <i className="fas fa-users text-base"></i>
+          <span className="text-[9px]">Transacti...</span>
+        </button>
+        
+        <button 
+          className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
+          data-testid="nav-tournaments"
+        >
+          <i className="fas fa-trophy text-base"></i>
+          <span className="text-[9px]">Tournois</span>
+        </button>
+      </nav>
+
+      {/* Assets Drawer - Full Screen on Mobile */}
       <Sheet open={isAssetsOpen} onOpenChange={setIsAssetsOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-md p-0">
-          <SheetHeader className="px-4 pt-4 pb-2 border-b">
-            <SheetTitle className="text-right">اختر الأصل للتداول</SheetTitle>
+        <SheetContent side="bottom" className="h-[90vh] p-0 bg-[#0f1535] border-[#1a1f3a]">
+          <SheetHeader className="px-4 pt-4 pb-2 border-b border-[#1a1f3a]">
+            <SheetTitle className="text-right text-white">اختر الأصل للتداول</SheetTitle>
           </SheetHeader>
-          <div className="overflow-y-auto h-[calc(100vh-80px)]">
+          <div className="overflow-y-auto h-[calc(90vh-80px)]">
             <AssetList
               assets={assets}
               selectedAsset={state.selectedAsset}
               onAssetSelect={handleAssetSelect}
               isLoading={assetsLoading}
             />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Trading Panel Drawer (Mobile) */}
-      <Sheet open={isTradingOpen} onOpenChange={setIsTradingOpen}>
-        <SheetContent side="bottom" className="h-[85vh] p-0">
-          <SheetHeader className="px-4 pt-4 pb-2 border-b">
-            <SheetTitle className="text-right">لوحة التداول</SheetTitle>
-          </SheetHeader>
-          <div className="overflow-y-auto h-[calc(85vh-80px)] p-4">
-            <TradingPanel
-              selectedAsset={state.selectedAsset}
-              tradeAmount={state.tradeAmount}
-              timeframe={state.selectedTimeframe}
-              onAmountChange={(amount) => updateState({ tradeAmount: amount })}
-              onTimeframeChange={(timeframe) => updateState({ selectedTimeframe: timeframe })}
-              onExecuteTrade={(type) => {
-                handleExecuteTrade(type);
-                setIsTradingOpen(false);
-              }}
-              isExecuting={isExecuting}
-              balance={currentBalance}
-              isDemoAccount={state.isDemoAccount}
-            />
-            
-            {/* Trades Panel on Mobile */}
-            <div className="mt-6">
-              <TradesPanel
-                openTrades={openTrades}
-                tradeHistory={tradeHistory}
-                assets={assets}
-                onCloseTrade={closeTrade}
-                isClosing={isClosing}
-              />
-            </div>
           </div>
         </SheetContent>
       </Sheet>
