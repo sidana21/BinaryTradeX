@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
 import { TradingChart } from '@/components/chart/trading-chart';
 import { AssetList } from '@/components/trading/asset-list';
@@ -8,12 +8,15 @@ import { useTrading } from '@/hooks/use-trading';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { ExternalLink } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { ExternalLink, Menu, X } from 'lucide-react';
 import type { Asset } from '@shared/schema';
 
 export default function TradingPage() {
   const { toast } = useToast();
   const { lastMessage } = useWebSocket('/ws');
+  const [isAssetsOpen, setIsAssetsOpen] = useState(false);
+  const [isTradingOpen, setIsTradingOpen] = useState(false);
   
   const {
     state,
@@ -54,6 +57,7 @@ export default function TradingPage() {
 
   const handleAssetSelect = (asset: Asset) => {
     updateState({ selectedAsset: asset });
+    setIsAssetsOpen(false);
   };
 
   const handleExecuteTrade = (type: 'CALL' | 'PUT') => {
@@ -87,82 +91,99 @@ export default function TradingPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="bg-card border-b border-border px-4 py-3 sticky top-0 z-50">
-        <div className="flex items-center justify-between">
-          {/* Logo and Platform Name */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <i className="fas fa-chart-line text-xl text-primary-foreground"></i>
+      {/* Header - Mobile Optimized */}
+      <header className="bg-card border-b border-border px-3 md:px-4 py-2 md:py-3 sticky top-0 z-50">
+        <div className="flex items-center justify-between gap-2">
+          {/* Left - Menu & Logo */}
+          <div className="flex items-center gap-2">
+            {/* Mobile Menu - Assets */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsAssetsOpen(true)}
+              className="lg:hidden"
+              data-testid="button-open-assets"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-lg flex items-center justify-center">
+                <i className="fas fa-chart-line text-lg md:text-xl text-primary-foreground"></i>
+              </div>
+              <h1 className="text-base md:text-xl font-bold hidden sm:block">منصة OTC</h1>
             </div>
-            <h1 className="text-xl font-bold hidden sm:block">منصة التداول</h1>
           </div>
 
-          {/* Center - Current Asset */}
+          {/* Center - Current Asset (Mobile Optimized) */}
           {state.selectedAsset && (
-            <div className="flex items-center gap-4 bg-secondary px-4 py-2 rounded-lg">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">الأصل:</span>
-                <span className="font-semibold text-lg">{state.selectedAsset.name}</span>
+            <button
+              onClick={() => setIsAssetsOpen(true)}
+              className="flex items-center gap-2 md:gap-4 bg-secondary px-2 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-secondary/80 transition-colors"
+              data-testid="button-current-asset"
+            >
+              <div className="flex items-center gap-1 md:gap-2">
+                <span className="text-xs md:text-sm text-muted-foreground hidden sm:inline">الأصل:</span>
+                <span className="font-semibold text-sm md:text-lg">{state.selectedAsset.name}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xl font-bold">{state.selectedAsset.currentPrice}</span>
-                <span className={`text-sm flex items-center gap-1 ${
+              <div className="flex items-center gap-1 md:gap-2">
+                <span className="font-mono text-base md:text-xl font-bold">{state.selectedAsset.currentPrice}</span>
+                <span className={`text-xs md:text-sm flex items-center gap-0.5 ${
                   parseFloat(state.selectedAsset.priceChange || '0') >= 0 ? 'text-success' : 'text-destructive'
                 }`}>
-                  <i className={`fas fa-arrow-${parseFloat(state.selectedAsset.priceChange || '0') >= 0 ? 'up' : 'down'}`}></i>
-                  <span>{state.selectedAsset.priceChangePercent}%</span>
+                  <i className={`fas fa-arrow-${parseFloat(state.selectedAsset.priceChange || '0') >= 0 ? 'up' : 'down'} text-xs`}></i>
+                  <span className="hidden sm:inline">{state.selectedAsset.priceChangePercent}%</span>
                 </span>
               </div>
-            </div>
+            </button>
           )}
 
-          {/* Account Controls */}
-          <div className="flex items-center gap-4">
-            {/* Binomo Link */}
-            <Link href="/binomo">
-              <Button variant="outline" className="gap-2" data-testid="button-binomo">
-                <ExternalLink className="w-4 h-4" />
-                Binomo API
-              </Button>
-            </Link>
-
-            {/* Demo/Real Toggle */}
-            <div className="flex items-center gap-2 bg-secondary rounded-lg p-1">
-              <button
-                onClick={toggleAccount}
-                className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${
-                  state.isDemoAccount
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                حساب تجريبي
-              </button>
-              <button
-                onClick={toggleAccount}
-                className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${
-                  !state.isDemoAccount
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                حساب حقيقي
-              </button>
-            </div>
-            
+          {/* Right - Account Controls (Mobile Optimized) */}
+          <div className="flex items-center gap-1 md:gap-3">
             {/* Balance Display */}
-            <div className="flex items-center gap-2 bg-secondary px-4 py-2 rounded-lg">
-              <i className="fas fa-wallet text-accent"></i>
-              <span className="font-mono font-bold text-lg">
+            <div className="flex items-center gap-1.5 md:gap-2 bg-secondary px-2 md:px-4 py-1.5 md:py-2 rounded-lg">
+              <i className="fas fa-wallet text-accent text-sm md:text-base"></i>
+              <span className="font-mono font-bold text-sm md:text-lg">
                 ${currentBalance.toFixed(2)}
               </span>
             </div>
 
-            {/* User Menu */}
-            <button className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center hover:bg-muted transition-colors">
-              <i className="fas fa-user"></i>
-            </button>
+            {/* Demo/Real Toggle - Hidden on very small screens */}
+            <div className="hidden sm:flex items-center gap-1 bg-secondary rounded-lg p-0.5 md:p-1">
+              <button
+                onClick={toggleAccount}
+                className={`px-2 md:px-4 py-1 md:py-2 rounded-md font-medium text-xs md:text-sm transition-all ${
+                  state.isDemoAccount
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="button-demo-account"
+              >
+                تجريبي
+              </button>
+              <button
+                onClick={toggleAccount}
+                className={`px-2 md:px-4 py-1 md:py-2 rounded-md font-medium text-xs md:text-sm transition-all ${
+                  !state.isDemoAccount
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="button-real-account"
+              >
+                حقيقي
+              </button>
+            </div>
+
+            {/* Mobile Trade Button */}
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setIsTradingOpen(true)}
+              className="md:hidden"
+              data-testid="button-open-trade"
+            >
+              تداول
+            </Button>
           </div>
         </div>
       </header>
@@ -180,7 +201,7 @@ export default function TradingPage() {
 
         {/* Main Content - Chart */}
         <main className="flex-1 flex flex-col bg-background overflow-hidden">
-          <div className="flex-1 p-4">
+          <div className="flex-1 p-1 md:p-4">
             <TradingChart
               asset={state.selectedAsset}
               timeframe={state.selectedTimeframe}
@@ -190,18 +211,20 @@ export default function TradingPage() {
             />
           </div>
 
-          {/* Bottom Trades Panel */}
-          <TradesPanel
-            openTrades={openTrades}
-            tradeHistory={tradeHistory}
-            assets={assets}
-            onCloseTrade={closeTrade}
-            isClosing={isClosing}
-          />
+          {/* Bottom Trades Panel - Hidden on small mobile */}
+          <div className="hidden md:block">
+            <TradesPanel
+              openTrades={openTrades}
+              tradeHistory={tradeHistory}
+              assets={assets}
+              onCloseTrade={closeTrade}
+              isClosing={isClosing}
+            />
+          </div>
         </main>
 
-        {/* Right Sidebar - Trading Panel */}
-        <aside className="w-96 bg-card border-r border-border p-4 overflow-y-auto">
+        {/* Right Sidebar - Trading Panel (Desktop Only) */}
+        <aside className="w-96 bg-card border-r border-border p-4 overflow-y-auto hidden md:block">
           <TradingPanel
             selectedAsset={state.selectedAsset}
             tradeAmount={state.tradeAmount}
@@ -215,6 +238,60 @@ export default function TradingPage() {
           />
         </aside>
       </div>
+
+      {/* Mobile Drawers */}
+      {/* Assets Drawer */}
+      <Sheet open={isAssetsOpen} onOpenChange={setIsAssetsOpen}>
+        <SheetContent side="left" className="w-full sm:max-w-md p-0">
+          <SheetHeader className="px-4 pt-4 pb-2 border-b">
+            <SheetTitle className="text-right">اختر الأصل للتداول</SheetTitle>
+          </SheetHeader>
+          <div className="overflow-y-auto h-[calc(100vh-80px)]">
+            <AssetList
+              assets={assets}
+              selectedAsset={state.selectedAsset}
+              onAssetSelect={handleAssetSelect}
+              isLoading={assetsLoading}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Trading Panel Drawer (Mobile) */}
+      <Sheet open={isTradingOpen} onOpenChange={setIsTradingOpen}>
+        <SheetContent side="bottom" className="h-[85vh] p-0">
+          <SheetHeader className="px-4 pt-4 pb-2 border-b">
+            <SheetTitle className="text-right">لوحة التداول</SheetTitle>
+          </SheetHeader>
+          <div className="overflow-y-auto h-[calc(85vh-80px)] p-4">
+            <TradingPanel
+              selectedAsset={state.selectedAsset}
+              tradeAmount={state.tradeAmount}
+              timeframe={state.selectedTimeframe}
+              onAmountChange={(amount) => updateState({ tradeAmount: amount })}
+              onTimeframeChange={(timeframe) => updateState({ selectedTimeframe: timeframe })}
+              onExecuteTrade={(type) => {
+                handleExecuteTrade(type);
+                setIsTradingOpen(false);
+              }}
+              isExecuting={isExecuting}
+              balance={currentBalance}
+              isDemoAccount={state.isDemoAccount}
+            />
+            
+            {/* Trades Panel on Mobile */}
+            <div className="mt-6">
+              <TradesPanel
+                openTrades={openTrades}
+                tradeHistory={tradeHistory}
+                assets={assets}
+                onCloseTrade={closeTrade}
+                isClosing={isClosing}
+              />
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
