@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import type { Asset } from '@shared/schema';
 
 interface TradingChartProps {
@@ -7,11 +8,51 @@ interface TradingChartProps {
   onTimeframeChange: (timeframe: string) => void;
 }
 
+interface Candle {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
 export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [candles, setCandles] = useState<Candle[]>([]);
 
+  // Fetch candle data from API
+  const { data: candleData, isLoading } = useQuery<Candle[]>({
+    queryKey: ['/api/binomo/candles', asset?.id, timeframe],
+    enabled: !!asset,
+  });
+
+  // Update candles when new data is fetched
   useEffect(() => {
-    if (!canvasRef.current || !asset) return;
+    if (candleData) {
+      setCandles(candleData);
+    }
+  }, [candleData]);
+
+  // Update last candle with current price
+  useEffect(() => {
+    if (!asset || candles.length === 0) return;
+
+    const currentPrice = parseFloat(asset.currentPrice);
+    const updatedCandles = [...candles];
+    const lastCandle = updatedCandles[updatedCandles.length - 1];
+    
+    // Update the last candle's close price and adjust high/low if needed
+    lastCandle.close = currentPrice;
+    lastCandle.high = Math.max(lastCandle.high, currentPrice);
+    lastCandle.low = Math.min(lastCandle.low, currentPrice);
+    
+    setCandles(updatedCandles);
+  }, [asset?.currentPrice]);
+
+  // Draw the chart
+  useEffect(() => {
+    if (!canvasRef.current || !asset || candles.length === 0) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -25,6 +66,13 @@ export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingCha
     // Clear canvas
     ctx.fillStyle = 'hsl(220, 25%, 10%)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Calculate price range
+    const prices = candles.flatMap(c => [c.high, c.low]);
+    const maxPrice = Math.max(...prices);
+    const minPrice = Math.min(...prices);
+    const priceRange = maxPrice - minPrice;
+    const padding = priceRange * 0.1;
 
     // Draw grid
     ctx.strokeStyle = 'hsl(220, 15%, 20%)';
@@ -49,38 +97,27 @@ export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingCha
 
     ctx.setLineDash([]);
 
-    // Draw sample candlesticks
-    const candleWidth = 20;
-    const candleSpacing = 30;
+    // Calculate candle dimensions
+    const visibleCandles = Math.min(candles.length, 50);
+    const candleWidth = Math.max(4, (canvas.width - 100) / visibleCandles - 5);
+    const candleSpacing = candleWidth + 5;
     const startX = 50;
-    const centerY = canvas.height / 2;
+    const startIndex = Math.max(0, candles.length - visibleCandles);
 
-    // Generate sample data based on current price
-    const basePrice = parseFloat(asset.currentPrice);
-    const priceRange = basePrice * 0.02; // 2% range
-    
-    for (let i = 0; i < 20; i++) {
+    // Scale price to canvas Y coordinate
+    const scalePrice = (price: number) => {
+      return canvas.height - 30 - ((price - (minPrice - padding)) / (priceRange + padding * 2)) * (canvas.height - 60);
+    };
+
+    // Draw candlesticks
+    candles.slice(startIndex).forEach((candle, i) => {
       const x = startX + i * candleSpacing;
+      const isGreen = candle.close >= candle.open;
       
-      // Generate OHLC data
-      const open = basePrice + (Math.random() - 0.5) * priceRange;
-      const close = basePrice + (Math.random() - 0.5) * priceRange;
-      const high = Math.max(open, close) + Math.random() * priceRange * 0.3;
-      const low = Math.min(open, close) - Math.random() * priceRange * 0.3;
-      
-      const isGreen = close > open;
-      
-      // Scale prices to canvas
-      const scalePrice = (price: number) => {
-        const minPrice = basePrice - priceRange;
-        const maxPrice = basePrice + priceRange;
-        return centerY + ((minPrice - price) / (maxPrice - minPrice)) * (canvas.height * 0.6);
-      };
-      
-      const openY = scalePrice(open);
-      const closeY = scalePrice(close);
-      const highY = scalePrice(high);
-      const lowY = scalePrice(low);
+      const openY = scalePrice(candle.open);
+      const closeY = scalePrice(candle.close);
+      const highY = scalePrice(candle.high);
+      const lowY = scalePrice(candle.low);
       
       // Draw wick
       ctx.strokeStyle = isGreen ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)';
@@ -95,18 +132,20 @@ export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingCha
       const bodyHeight = Math.abs(closeY - openY);
       const bodyY = Math.min(openY, closeY);
       ctx.fillRect(x, bodyY, candleWidth, bodyHeight || 1);
-    }
+    });
 
     // Draw current price line
+    const currentPrice = parseFloat(asset.currentPrice);
+    const currentPriceY = scalePrice(currentPrice);
     ctx.strokeStyle = 'hsl(217, 91%, 60%)';
     ctx.lineWidth = 2;
-    ctx.setLineDash([]);
+    ctx.setLineDash([5, 3]);
     ctx.beginPath();
-    ctx.moveTo(0, centerY);
-    ctx.lineTo(canvas.width, centerY);
+    ctx.moveTo(0, currentPriceY);
+    ctx.lineTo(canvas.width, currentPriceY);
     ctx.stroke();
 
-  }, [asset, timeframe]);
+  }, [candles, asset]);
 
   const timeframes = [
     { key: '1m', label: '1د' },
