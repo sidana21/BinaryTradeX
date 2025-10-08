@@ -20,6 +20,7 @@ interface Candle {
 export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
+  const lastUpdateTimeRef = useRef<number>(0);
 
   // Fetch candle data from API
   const { data: candleData, isLoading } = useQuery<Candle[]>({
@@ -34,20 +35,32 @@ export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingCha
     }
   }, [candleData]);
 
-  // Update last candle with current price
+  // Update last candle with current price (throttled to 500ms)
   useEffect(() => {
     if (!asset || candles.length === 0) return;
 
+    const currentTime = Date.now();
+    const timeSinceLastUpdate = currentTime - lastUpdateTimeRef.current;
+    
+    // Only update if at least 500ms have passed
+    if (timeSinceLastUpdate < 500) {
+      return;
+    }
+
+    lastUpdateTimeRef.current = currentTime;
     const currentPrice = parseFloat(asset.currentPrice);
-    const updatedCandles = [...candles];
-    const lastCandle = updatedCandles[updatedCandles.length - 1];
     
-    // Update the last candle's close price and adjust high/low if needed
-    lastCandle.close = currentPrice;
-    lastCandle.high = Math.max(lastCandle.high, currentPrice);
-    lastCandle.low = Math.min(lastCandle.low, currentPrice);
-    
-    setCandles(updatedCandles);
+    setCandles(prevCandles => {
+      const updatedCandles = [...prevCandles];
+      const lastCandle = updatedCandles[updatedCandles.length - 1];
+      
+      // Update the last candle's close price and adjust high/low if needed
+      lastCandle.close = currentPrice;
+      lastCandle.high = Math.max(lastCandle.high, currentPrice);
+      lastCandle.low = Math.min(lastCandle.low, currentPrice);
+      
+      return updatedCandles;
+    });
   }, [asset?.currentPrice]);
 
   // Draw the chart
