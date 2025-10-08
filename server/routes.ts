@@ -52,9 +52,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(assets);
   });
 
-  app.get("/api/binomo/candles/:assetId", async (req, res) => {
-    const { assetId } = req.params;
+  app.get("/api/binomo/candles/:assetId/:timeframe?", async (req, res) => {
+    const { assetId, timeframe } = req.params;
     const count = parseInt(req.query.count as string) || 100;
+    
+    // Calculate time interval based on timeframe
+    const timeframeMinutes: Record<string, number> = {
+      '1m': 1,
+      '5m': 5,
+      '15m': 15,
+      '1h': 60,
+      '4h': 240,
+    };
+    const intervalMinutes = timeframeMinutes[timeframe || '1m'] || 1;
     
     const basePrices: Record<string, number> = {
       "EURUSD": 1.0850, "GBPUSD": 1.2650, "USDJPY": 149.50,
@@ -73,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const decimals = (assetId.includes("BTC") || assetId.includes("ETH")) ? 2 : 5;
       
       candles.push({
-        timestamp: currentTime - (count - i) * 60,
+        timestamp: currentTime - (count - i) * intervalMinutes * 60,
         open: parseFloat(openPrice.toFixed(decimals)),
         high: parseFloat((openPrice + Math.random() * volatility * basePrice).toFixed(decimals)),
         low: parseFloat((openPrice - Math.random() * volatility * basePrice).toFixed(decimals)),
@@ -339,7 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Start price simulation
-  setInterval(simulatePrices, 2000); // Update every 2 seconds
+  setInterval(simulatePrices, 5000); // Update every 5 seconds
 
   // Trade expiry checker
   const checkTradeExpiry = () => {

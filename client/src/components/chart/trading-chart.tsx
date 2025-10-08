@@ -24,7 +24,7 @@ export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingCha
 
   // Fetch candle data from API
   const { data: candleData, isLoading } = useQuery<Candle[]>({
-    queryKey: ['/api/binomo/candles', asset?.id, timeframe],
+    queryKey: [`/api/binomo/candles/${asset?.id}/${timeframe}`],
     enabled: !!asset,
   });
 
@@ -35,15 +35,15 @@ export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingCha
     }
   }, [candleData]);
 
-  // Update last candle with current price (throttled to 500ms)
+  // Update last candle with current price (throttled to 3000ms)
   useEffect(() => {
     if (!asset || candles.length === 0) return;
 
     const currentTime = Date.now();
     const timeSinceLastUpdate = currentTime - lastUpdateTimeRef.current;
     
-    // Only update if at least 500ms have passed
-    if (timeSinceLastUpdate < 500) {
+    // Only update if at least 3000ms have passed
+    if (timeSinceLastUpdate < 3000) {
       return;
     }
 
@@ -87,44 +87,48 @@ export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingCha
     const priceRange = maxPrice - minPrice;
     const padding = priceRange * 0.1;
 
-    // Draw grid
-    ctx.strokeStyle = 'hsl(220, 15%, 20%)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 5]);
-
-    // Vertical lines
-    for (let x = 0; x <= canvas.width; x += 50) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
-      ctx.stroke();
-    }
-
-    // Horizontal lines
-    for (let y = 0; y <= canvas.height; y += 50) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
-    }
-
-    ctx.setLineDash([]);
-
     // Calculate candle dimensions
-    const visibleCandles = Math.min(candles.length, 50);
-    const candleWidth = Math.max(4, (canvas.width - 100) / visibleCandles - 5);
-    const candleSpacing = candleWidth + 5;
-    const startX = 50;
+    const leftMargin = 80;
+    const rightMargin = 20;
+    const topMargin = 20;
+    const bottomMargin = 30;
+    const chartWidth = canvas.width - leftMargin - rightMargin;
+    const chartHeight = canvas.height - topMargin - bottomMargin;
+    
+    const visibleCandles = Math.min(candles.length, 80);
+    const candleWidth = Math.max(3, chartWidth / visibleCandles - 2);
+    const candleSpacing = chartWidth / visibleCandles;
     const startIndex = Math.max(0, candles.length - visibleCandles);
 
     // Scale price to canvas Y coordinate
     const scalePrice = (price: number) => {
-      return canvas.height - 30 - ((price - (minPrice - padding)) / (priceRange + padding * 2)) * (canvas.height - 60);
+      return topMargin + chartHeight - ((price - (minPrice - padding)) / (priceRange + padding * 2)) * chartHeight;
     };
+
+    // Draw price labels on Y-axis
+    ctx.fillStyle = 'hsl(0, 0%, 70%)';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'right';
+    const priceSteps = 5;
+    for (let i = 0; i <= priceSteps; i++) {
+      const price = minPrice - padding + (priceRange + padding * 2) * (i / priceSteps);
+      const y = scalePrice(price);
+      ctx.fillText(price.toFixed(asset.category === 'crypto' ? 2 : 5), leftMargin - 10, y + 4);
+      
+      // Draw horizontal grid line
+      ctx.strokeStyle = 'hsl(220, 15%, 15%)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(leftMargin, y);
+      ctx.lineTo(canvas.width - rightMargin, y);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
 
     // Draw candlesticks
     candles.slice(startIndex).forEach((candle, i) => {
-      const x = startX + i * candleSpacing;
+      const x = leftMargin + i * candleSpacing + candleSpacing / 2;
       const isGreen = candle.close >= candle.open;
       
       const openY = scalePrice(candle.open);
@@ -133,30 +137,39 @@ export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingCha
       const lowY = scalePrice(candle.low);
       
       // Draw wick
-      ctx.strokeStyle = isGreen ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isGreen ? 'hsl(142, 76%, 45%)' : 'hsl(0, 84%, 60%)';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(x + candleWidth/2, highY);
-      ctx.lineTo(x + candleWidth/2, lowY);
+      ctx.moveTo(x, highY);
+      ctx.lineTo(x, lowY);
       ctx.stroke();
       
       // Draw body
-      ctx.fillStyle = isGreen ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)';
-      const bodyHeight = Math.abs(closeY - openY);
+      ctx.fillStyle = isGreen ? 'hsl(142, 76%, 45%)' : 'hsl(0, 84%, 60%)';
+      const bodyHeight = Math.max(Math.abs(closeY - openY), 1);
       const bodyY = Math.min(openY, closeY);
-      ctx.fillRect(x, bodyY, candleWidth, bodyHeight || 1);
+      ctx.fillRect(x - candleWidth/2, bodyY, candleWidth, bodyHeight);
     });
 
     // Draw current price line
     const currentPrice = parseFloat(asset.currentPrice);
     const currentPriceY = scalePrice(currentPrice);
     ctx.strokeStyle = 'hsl(217, 91%, 60%)';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1;
     ctx.setLineDash([5, 3]);
     ctx.beginPath();
-    ctx.moveTo(0, currentPriceY);
-    ctx.lineTo(canvas.width, currentPriceY);
+    ctx.moveTo(leftMargin, currentPriceY);
+    ctx.lineTo(canvas.width - rightMargin, currentPriceY);
     ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Draw current price label
+    ctx.fillStyle = 'hsl(217, 91%, 60%)';
+    ctx.fillRect(canvas.width - rightMargin - 80, currentPriceY - 10, 75, 20);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(currentPrice.toFixed(asset.category === 'crypto' ? 2 : 5), canvas.width - rightMargin - 5, currentPriceY + 4);
 
   }, [candles, asset]);
 
@@ -210,12 +223,7 @@ export function TradingChart({ asset, timeframe, onTimeframeChange }: TradingCha
         style={{ background: 'hsl(220, 25%, 10%)' }}
       />
 
-      {/* Price Level Indicator */}
-      {asset && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 bg-primary px-2 py-1 rounded-l text-xs font-mono font-bold">
-          {asset.currentPrice}
-        </div>
-      )}
+      {/* Price Level Indicator - removed, now drawn on canvas */}
     </div>
   );
 }
