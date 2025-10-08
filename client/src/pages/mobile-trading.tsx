@@ -35,7 +35,7 @@ export default function MobileTradingPage() {
   const { data: candles = [] } = useQuery<Candle[]>({
     queryKey: [`/api/binomo/candles/${selectedAsset?.id}/1m`],
     enabled: !!selectedAsset,
-    refetchInterval: 3000,
+    refetchInterval: 10000,
   });
 
   // Set default asset
@@ -138,8 +138,8 @@ export default function MobileTradingPage() {
     const chartWidth = canvas.width - leftMargin - rightMargin;
     const chartHeight = canvas.height - topMargin - bottomMargin;
     
-    const visibleCandles = Math.min(candles.length, 60);
-    const candleWidth = Math.max(3, chartWidth / visibleCandles - 2);
+    const visibleCandles = Math.min(candles.length, 120);
+    const candleWidth = Math.max(2, chartWidth / visibleCandles - 1);
     const candleSpacing = chartWidth / visibleCandles;
     const startIndex = Math.max(0, candles.length - visibleCandles);
 
