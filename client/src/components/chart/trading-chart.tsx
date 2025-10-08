@@ -141,8 +141,11 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
     canvas.width = rect.width;
     canvas.height = rect.height;
 
-    // Clear canvas with dark background
-    ctx.fillStyle = 'hsl(220, 25%, 10%)';
+    // Clear canvas with professional dark background (Pocket Option style)
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    bgGradient.addColorStop(0, 'hsl(220, 30%, 8%)');
+    bgGradient.addColorStop(1, 'hsl(220, 30%, 12%)');
+    ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Calculate price range including marker prices
@@ -152,7 +155,7 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
     const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 100;
     const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
     const priceRange = maxPrice - minPrice || 1;
-    const padding = priceRange * 0.1;
+    const padding = priceRange * 0.08;
 
     // Calculate candle dimensions
     const leftMargin = 80;
@@ -183,28 +186,39 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       return leftMargin + position * chartWidth;
     };
 
-    // Draw price labels on Y-axis
-    ctx.fillStyle = 'hsl(0, 0%, 60%)';
-    ctx.font = '10px monospace';
+    // Draw price labels on Y-axis with Pocket Option style
+    ctx.fillStyle = 'hsl(0, 0%, 70%)';
+    ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = 'right';
-    const priceSteps = 6;
+    const priceSteps = 8;
     for (let i = 0; i <= priceSteps; i++) {
       const price = minPrice - padding + (priceRange + padding * 2) * (i / priceSteps);
       const y = scalePrice(price);
-      ctx.fillText(price.toFixed(asset.category === 'crypto' ? 2 : 5), leftMargin - 10, y + 3);
       
-      // Draw horizontal grid line
-      ctx.strokeStyle = 'hsl(220, 15%, 15%)';
-      ctx.lineWidth = 0.5;
-      ctx.setLineDash([2, 4]);
-      ctx.beginPath();
-      ctx.moveTo(leftMargin, y);
-      ctx.lineTo(canvas.width - rightMargin, y);
-      ctx.stroke();
+      // Price label background
+      const labelText = price.toFixed(asset.category === 'crypto' ? 2 : 5);
+      const labelWidth = ctx.measureText(labelText).width;
+      ctx.fillStyle = 'hsla(220, 30%, 15%, 0.8)';
+      ctx.fillRect(leftMargin - labelWidth - 18, y - 9, labelWidth + 8, 18);
+      
+      // Price label text
+      ctx.fillStyle = 'hsl(0, 0%, 75%)';
+      ctx.fillText(labelText, leftMargin - 10, y + 4);
+      
+      // Draw horizontal grid line with better visibility
+      if (i > 0 && i < priceSteps) {
+        ctx.strokeStyle = 'hsla(220, 20%, 25%, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.moveTo(leftMargin, y);
+        ctx.lineTo(canvas.width - rightMargin, y);
+        ctx.stroke();
+      }
     }
     ctx.setLineDash([]);
 
-    // Draw enhanced candlesticks with gradients
+    // Draw professional candlesticks (Pocket Option style)
     candles.slice(startIndex).forEach((candle, i) => {
       const x = leftMargin + i * candleSpacing + candleSpacing / 2;
       const isGreen = candle.close >= candle.open;
@@ -214,35 +228,48 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       const highY = scalePrice(candle.high);
       const lowY = scalePrice(candle.low);
       
-      // Draw shadow for depth
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
       const bodyHeight = Math.max(Math.abs(closeY - openY), 2);
       const bodyY = Math.min(openY, closeY);
-      ctx.fillRect(x - candleWidth/2 + 1, bodyY + 1, candleWidth, bodyHeight);
       
-      // Draw wick with thinner line
-      ctx.strokeStyle = isGreen ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 65%)';
-      ctx.lineWidth = 1.5;
+      // Premium color scheme
+      const greenColor = 'hsl(145, 80%, 55%)';
+      const greenDark = 'hsl(145, 80%, 42%)';
+      const redColor = 'hsl(355, 85%, 60%)';
+      const redDark = 'hsl(355, 85%, 48%)';
+      
+      // Draw wick with precise width
+      ctx.strokeStyle = isGreen ? greenColor : redColor;
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(x, highY);
       ctx.lineTo(x, lowY);
       ctx.stroke();
       
-      // Draw body with gradient
-      const gradient = ctx.createLinearGradient(x - candleWidth/2, bodyY, x - candleWidth/2, bodyY + bodyHeight);
+      // Draw glow effect for depth
+      ctx.shadowColor = isGreen ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+      ctx.shadowBlur = 8;
+      
+      // Draw body with smooth gradient
+      const gradient = ctx.createLinearGradient(x - candleWidth/2, bodyY, x + candleWidth/2, bodyY + bodyHeight);
       if (isGreen) {
-        gradient.addColorStop(0, 'hsl(142, 76%, 55%)');
-        gradient.addColorStop(1, 'hsl(142, 76%, 40%)');
+        gradient.addColorStop(0, greenColor);
+        gradient.addColorStop(0.5, 'hsl(145, 80%, 48%)');
+        gradient.addColorStop(1, greenDark);
       } else {
-        gradient.addColorStop(0, 'hsl(0, 84%, 70%)');
-        gradient.addColorStop(1, 'hsl(0, 84%, 55%)');
+        gradient.addColorStop(0, redColor);
+        gradient.addColorStop(0.5, 'hsl(355, 85%, 54%)');
+        gradient.addColorStop(1, redDark);
       }
       ctx.fillStyle = gradient;
       ctx.fillRect(x - candleWidth/2, bodyY, candleWidth, bodyHeight);
       
-      // Add subtle border
-      ctx.strokeStyle = isGreen ? 'hsl(142, 76%, 35%)' : 'hsl(0, 84%, 45%)';
-      ctx.lineWidth = 0.5;
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      
+      // Add crisp border for clarity
+      ctx.strokeStyle = isGreen ? greenDark : redDark;
+      ctx.lineWidth = 1;
       ctx.strokeRect(x - candleWidth/2, bodyY, candleWidth, bodyHeight);
     });
 
@@ -326,84 +353,136 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       }
     });
 
-    // Draw current price line
+    // Draw current price line with professional style
     const currentPrice = parseFloat(asset.currentPrice);
     const currentPriceY = scalePrice(currentPrice);
-    ctx.strokeStyle = 'hsl(217, 91%, 65%)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([8, 4]);
+    
+    // Animated glow effect for current price line
+    ctx.shadowColor = 'hsla(217, 91%, 65%, 0.6)';
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = 'hsl(217, 91%, 60%)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 5]);
     ctx.beginPath();
     ctx.moveTo(leftMargin, currentPriceY);
     ctx.lineTo(canvas.width - rightMargin, currentPriceY);
     ctx.stroke();
     ctx.setLineDash([]);
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
     
-    // Draw current price label with modern design
+    // Draw current price label with Pocket Option style
     const priceText = currentPrice.toFixed(asset.category === 'crypto' ? 2 : 5);
-    ctx.font = 'bold 11px monospace';
+    ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     const textWidth = ctx.measureText(priceText).width;
     
-    ctx.fillStyle = 'hsl(217, 91%, 65%)';
-    ctx.fillRect(canvas.width - rightMargin - textWidth - 16, currentPriceY - 11, textWidth + 12, 22);
+    // Price badge background with gradient
+    const badgeGradient = ctx.createLinearGradient(
+      canvas.width - rightMargin - textWidth - 20, 
+      currentPriceY - 13, 
+      canvas.width - rightMargin - textWidth - 20, 
+      currentPriceY + 13
+    );
+    badgeGradient.addColorStop(0, 'hsl(217, 91%, 58%)');
+    badgeGradient.addColorStop(1, 'hsl(217, 91%, 48%)');
+    ctx.fillStyle = badgeGradient;
     
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'right';
+    // Rounded badge
+    const badgeX = canvas.width - rightMargin - textWidth - 20;
+    const badgeY = currentPriceY - 13;
+    const badgeWidth = textWidth + 16;
+    const badgeHeight = 26;
+    const radius = 4;
+    
+    ctx.beginPath();
+    ctx.moveTo(badgeX + radius, badgeY);
+    ctx.lineTo(badgeX + badgeWidth - radius, badgeY);
+    ctx.quadraticCurveTo(badgeX + badgeWidth, badgeY, badgeX + badgeWidth, badgeY + radius);
+    ctx.lineTo(badgeX + badgeWidth, badgeY + badgeHeight - radius);
+    ctx.quadraticCurveTo(badgeX + badgeWidth, badgeY + badgeHeight, badgeX + badgeWidth - radius, badgeY + badgeHeight);
+    ctx.lineTo(badgeX + radius, badgeY + badgeHeight);
+    ctx.quadraticCurveTo(badgeX, badgeY + badgeHeight, badgeX, badgeY + badgeHeight - radius);
+    ctx.lineTo(badgeX, badgeY + radius);
+    ctx.quadraticCurveTo(badgeX, badgeY, badgeX + radius, badgeY);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Badge border
+    ctx.strokeStyle = 'hsl(217, 91%, 70%)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    // Price text
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(priceText, canvas.width - rightMargin - 8, currentPriceY);
+    ctx.fillText(priceText, badgeX + badgeWidth / 2, currentPriceY);
 
   }, [candles, asset, markers]);
 
   const timeframes = [
+    { key: '5s', label: '5ث' },
+    { key: '30s', label: '30ث' },
     { key: '1m', label: '1د' },
     { key: '5m', label: '5د' },
     { key: '15m', label: '15د' },
+    { key: '30m', label: '30د' },
     { key: '1h', label: '1س' },
     { key: '4h', label: '4س' },
   ];
 
   return (
     <div className="h-full relative">
-      {/* Chart Controls */}
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-        <div className="bg-card/80 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2">
+      {/* Chart Controls - Pocket Option Style */}
+      <div className="absolute top-4 left-4 z-10 flex items-center gap-2" data-testid="chart-controls">
+        <div className="bg-gradient-to-b from-slate-800/90 to-slate-900/90 backdrop-blur-md rounded-xl px-2 py-2 flex items-center gap-1 border border-slate-700/50 shadow-xl">
           {timeframes.map(tf => (
             <button
               key={tf.key}
               onClick={() => onTimeframeChange(tf.key)}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              data-testid={`timeframe-${tf.key}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 timeframe === tf.key
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-secondary'
+                  ? 'bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
+                  : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
               }`}
             >
               {tf.label}
             </button>
           ))}
         </div>
-        <button className="bg-card/80 backdrop-blur-sm rounded-lg px-3 py-2 hover:bg-secondary transition-colors">
-          <i className="fas fa-chart-bar text-sm"></i>
+        <button 
+          className="bg-gradient-to-b from-slate-800/90 to-slate-900/90 backdrop-blur-md rounded-xl px-3 py-2 hover:bg-slate-700/50 transition-all border border-slate-700/50 shadow-xl"
+          data-testid="button-chart-type"
+        >
+          <i className="fas fa-chart-bar text-sm text-slate-300"></i>
         </button>
-        <button className="bg-card/80 backdrop-blur-sm rounded-lg px-3 py-2 hover:bg-secondary transition-colors">
-          <i className="fas fa-compress text-sm"></i>
+        <button 
+          className="bg-gradient-to-b from-slate-800/90 to-slate-900/90 backdrop-blur-md rounded-xl px-3 py-2 hover:bg-slate-700/50 transition-all border border-slate-700/50 shadow-xl"
+          data-testid="button-fullscreen"
+        >
+          <i className="fas fa-expand text-sm text-slate-300"></i>
         </button>
       </div>
 
-      {/* Indicator Controls */}
+      {/* Indicator Controls - Pocket Option Style */}
       <div className="absolute top-4 right-4 z-10">
-        <button className="bg-card/80 backdrop-blur-sm rounded-lg px-3 py-2 hover:bg-secondary transition-colors flex items-center gap-2">
-          <i className="fas fa-chart-line text-sm"></i>
-          <span className="text-xs font-medium">المؤشرات</span>
+        <button 
+          className="bg-gradient-to-b from-slate-800/90 to-slate-900/90 backdrop-blur-md rounded-xl px-4 py-2 hover:bg-slate-700/50 transition-all flex items-center gap-2 border border-slate-700/50 shadow-xl"
+          data-testid="button-indicators"
+        >
+          <i className="fas fa-chart-line text-sm text-blue-400"></i>
+          <span className="text-xs font-bold text-slate-200">المؤشرات</span>
         </button>
       </div>
 
-      {/* Chart Canvas */}
+      {/* Chart Canvas with Professional Background */}
       <canvas
         ref={canvasRef}
-        className="w-full h-full bg-card rounded-lg"
-        style={{ background: 'hsl(220, 25%, 10%)' }}
+        className="w-full h-full rounded-lg"
+        style={{ background: 'linear-gradient(to bottom, hsl(220, 30%, 8%), hsl(220, 30%, 12%))' }}
+        data-testid="trading-chart-canvas"
       />
-
-      {/* Price Level Indicator - removed, now drawn on canvas */}
     </div>
   );
 }
