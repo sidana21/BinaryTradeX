@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/hooks/use-websocket';
-import type { Asset, Trade } from '@shared/schema';
+import type { Asset } from '@shared/schema';
 import { TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
 
 interface Candle {
@@ -25,6 +25,8 @@ export default function MobileTradingPage() {
   const [payout, setPayout] = useState(90);
   const [balance, setBalance] = useState(49499.90);
   const [timeRemaining, setTimeRemaining] = useState('23:56:16');
+  
+  const currentPriceRef = useRef<number>(0);
 
   // Fetch assets
   const { data: assets = [] } = useQuery<Asset[]>({
@@ -35,7 +37,7 @@ export default function MobileTradingPage() {
   const { data: candles = [] } = useQuery<Candle[]>({
     queryKey: [`/api/binomo/candles/${selectedAsset?.id}/1m`],
     enabled: !!selectedAsset,
-    refetchInterval: 10000,
+    refetchInterval: 8000,
   });
 
   // Set default asset
@@ -43,6 +45,7 @@ export default function MobileTradingPage() {
     if (assets.length > 0 && !selectedAsset) {
       const defaultAsset = assets.find(a => a.id === 'USDJPY_OTC') || assets[0];
       setSelectedAsset(defaultAsset);
+      currentPriceRef.current = parseFloat(defaultAsset.currentPrice);
     }
   }, [assets, selectedAsset]);
 
@@ -52,13 +55,10 @@ export default function MobileTradingPage() {
       const updates = lastMessage.data;
       const assetUpdate = updates.find((update: any) => update.id === selectedAsset.id);
       if (assetUpdate) {
-        setSelectedAsset({
-          ...selectedAsset,
-          currentPrice: assetUpdate.price,
-        });
+        currentPriceRef.current = parseFloat(assetUpdate.price);
       }
     }
-  }, [lastMessage, selectedAsset]);
+  }, [lastMessage, selectedAsset?.id]);
 
   // Update time remaining
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function MobileTradingPage() {
         assetId: selectedAsset.id,
         type: direction,
         amount: tradeAmount.toString(),
-        openPrice: selectedAsset.currentPrice,
+        openPrice: currentPriceRef.current.toString(),
         expiryTime: expiryTime.toISOString(),
         isDemo: true,
       });
@@ -113,33 +113,37 @@ export default function MobileTradingPage() {
 
     // Set canvas size
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+    canvas.width = rect.width * window.devicePixelRatio;
+    canvas.height = rect.height * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+    const width = rect.width;
+    const height = rect.height;
 
     // Clear canvas with dark background
-    const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    bgGradient.addColorStop(0, '#1a1e2e');
-    bgGradient.addColorStop(1, '#0f1118');
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
+    bgGradient.addColorStop(0, '#0f1419');
+    bgGradient.addColorStop(1, '#0a0e13');
     ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, width, height);
 
     // Calculate price range
     const prices = candles.flatMap(c => [c.high, c.low]);
     const maxPrice = Math.max(...prices);
     const minPrice = Math.min(...prices);
     const priceRange = maxPrice - minPrice || 1;
-    const padding = priceRange * 0.1;
+    const padding = priceRange * 0.08;
 
     // Calculate dimensions
-    const rightMargin = 80;
-    const leftMargin = 10;
+    const rightMargin = 70;
+    const leftMargin = 5;
     const topMargin = 10;
-    const bottomMargin = 30;
-    const chartWidth = canvas.width - leftMargin - rightMargin;
-    const chartHeight = canvas.height - topMargin - bottomMargin;
+    const bottomMargin = 25;
+    const chartWidth = width - leftMargin - rightMargin;
+    const chartHeight = height - topMargin - bottomMargin;
     
-    const visibleCandles = Math.min(candles.length, 120);
-    const candleWidth = Math.max(2, chartWidth / visibleCandles - 1);
+    const visibleCandles = Math.min(candles.length, 100);
+    const candleWidth = (chartWidth / visibleCandles) * 0.7;
     const candleSpacing = chartWidth / visibleCandles;
     const startIndex = Math.max(0, candles.length - visibleCandles);
 
@@ -149,24 +153,30 @@ export default function MobileTradingPage() {
     };
 
     // Draw horizontal grid lines
-    const gridSteps = 6;
+    const gridSteps = 8;
     for (let i = 0; i <= gridSteps; i++) {
       const price = minPrice - padding + (priceRange + padding * 2) * (i / gridSteps);
       const y = scalePrice(price);
       
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(leftMargin, y);
-      ctx.lineTo(canvas.width - rightMargin, y);
+      ctx.lineTo(width - rightMargin, y);
       ctx.stroke();
       
-      // Draw price labels on right
+      // Price labels
       const labelText = price.toFixed(3);
+      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+      const textMetrics = ctx.measureText(labelText);
+      
+      ctx.fillStyle = 'rgba(15, 20, 25, 0.9)';
+      ctx.fillRect(width - rightMargin + 2, y - 8, textMetrics.width + 6, 16);
+      
       ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(labelText, canvas.width - rightMargin + 5, y + 4);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(labelText, width - rightMargin + 5, y);
     }
 
     // Draw candlesticks
@@ -182,13 +192,12 @@ export default function MobileTradingPage() {
       const bodyHeight = Math.max(Math.abs(closeY - openY), 1);
       const bodyY = Math.min(openY, closeY);
       
-      // Colors from the screenshot
-      const greenColor = '#22c55e'; // bright green
-      const redColor = '#ef4444'; // red
+      const greenColor = '#22c55e';
+      const redColor = '#ef4444';
       
       // Draw wick
       ctx.strokeStyle = isGreen ? greenColor : redColor;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = Math.max(1, candleWidth * 0.15);
       ctx.beginPath();
       ctx.moveTo(x, highY);
       ctx.lineTo(x, lowY);
@@ -196,38 +205,46 @@ export default function MobileTradingPage() {
       
       // Draw body
       ctx.fillStyle = isGreen ? greenColor : redColor;
-      ctx.fillRect(x - candleWidth/2, bodyY, candleWidth, bodyHeight);
+      const finalWidth = Math.max(1, candleWidth);
+      ctx.fillRect(x - finalWidth/2, bodyY, finalWidth, bodyHeight);
     });
 
     // Draw current price line
-    if (selectedAsset) {
-      const currentPrice = parseFloat(selectedAsset.currentPrice);
-      const currentPriceY = scalePrice(currentPrice);
+    if (selectedAsset && currentPriceRef.current > 0) {
+      const priceValue = currentPriceRef.current;
+      const currentPriceY = scalePrice(priceValue);
       
-      ctx.strokeStyle = '#60a5fa';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([8, 4]);
       ctx.beginPath();
       ctx.moveTo(leftMargin, currentPriceY);
-      ctx.lineTo(canvas.width - rightMargin, currentPriceY);
+      ctx.lineTo(width - rightMargin, currentPriceY);
       ctx.stroke();
       ctx.setLineDash([]);
       
       // Current price label
-      const priceText = currentPrice.toFixed(3);
+      const priceText = priceValue.toFixed(3);
       ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
       const textWidth = ctx.measureText(priceText).width;
       
-      ctx.fillStyle = '#3b82f6';
-      ctx.fillRect(canvas.width - rightMargin + 2, currentPriceY - 10, textWidth + 8, 20);
+      const gradient = ctx.createLinearGradient(
+        width - rightMargin, currentPriceY - 11,
+        width - rightMargin, currentPriceY + 11
+      );
+      gradient.addColorStop(0, '#3b82f6');
+      gradient.addColorStop(1, '#2563eb');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(width - rightMargin, currentPriceY - 11, textWidth + 10, 22);
       
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'left';
-      ctx.fillText(priceText, canvas.width - rightMargin + 6, currentPriceY + 4);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(priceText, width - rightMargin + 5, currentPriceY);
     }
   }, [candles, selectedAsset]);
 
-  const currentPrice = selectedAsset ? parseFloat(selectedAsset.currentPrice) : 0;
+  const currentPrice = currentPriceRef.current || (selectedAsset ? parseFloat(selectedAsset.currentPrice) : 0);
   const profit = (tradeAmount * payout / 100).toFixed(2);
 
   return (
