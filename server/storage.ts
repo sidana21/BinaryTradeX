@@ -41,94 +41,58 @@ export class MemStorage implements IStorage {
 
   private initializeAssets() {
     const defaultAssets: InsertAsset[] = [
-      {
-        id: "EURUSD",
-        name: "EUR/USD",
-        symbol: "EUR/USD",
-        category: "forex",
-        currentPrice: "1.0856",
-        priceChange: "0.0023",
-        priceChangePercent: "0.23",
-        isActive: true,
-        payoutRate: "82.00"
-      },
-      {
-        id: "BTCUSD",
-        name: "BTC/USD",
-        symbol: "BTC/USD",
-        category: "crypto",
-        currentPrice: "43256.50",
-        priceChange: "915.30",
-        priceChangePercent: "2.15",
-        isActive: true,
-        payoutRate: "85.00"
-      },
-      {
-        id: "GBPUSD",
-        name: "GBP/USD",
-        symbol: "GBP/USD",
-        category: "forex",
-        currentPrice: "1.2678",
-        priceChange: "-0.0057",
-        priceChangePercent: "-0.45",
-        isActive: true,
-        payoutRate: "80.00"
-      },
-      {
-        id: "GOLD",
-        name: "الذهب",
-        symbol: "XAU/USD",
-        category: "commodity",
-        currentPrice: "2045.30",
-        priceChange: "17.85",
-        priceChangePercent: "0.87",
-        isActive: true,
-        payoutRate: "78.00"
-      },
-      {
-        id: "OIL",
-        name: "النفط",
-        symbol: "WTI",
-        category: "commodity",
-        currentPrice: "78.45",
-        priceChange: "0.95",
-        priceChangePercent: "1.23",
-        isActive: true,
-        payoutRate: "75.00"
-      },
-      {
-        id: "ETHUSD",
-        name: "ETH/USD",
-        symbol: "ETH/USD",
-        category: "crypto",
-        currentPrice: "2287.80",
-        priceChange: "-25.90",
-        priceChangePercent: "-1.12",
-        isActive: true,
-        payoutRate: "84.00"
-      },
-      {
-        id: "USDJPY",
-        name: "USD/JPY",
-        symbol: "USD/JPY",
-        category: "forex",
-        currentPrice: "149.85",
-        priceChange: "0.83",
-        priceChangePercent: "0.56",
-        isActive: true,
-        payoutRate: "81.00"
-      },
-      {
-        id: "SP500",
-        name: "S&P 500",
-        symbol: "SPX",
-        category: "index",
-        currentPrice: "4567.20",
-        priceChange: "41.75",
-        priceChangePercent: "0.92",
-        isActive: true,
-        payoutRate: "77.00"
-      }
+      // Major Forex Pairs
+      { id: "EURUSD", name: "EUR/USD", symbol: "EUR/USD", category: "forex", currentPrice: "1.0856", priceChange: "0.0023", priceChangePercent: "0.23", isActive: true, payoutRate: "85.00" },
+      { id: "GBPUSD", name: "GBP/USD", symbol: "GBP/USD", category: "forex", currentPrice: "1.2678", priceChange: "-0.0057", priceChangePercent: "-0.45", isActive: true, payoutRate: "84.00" },
+      { id: "USDJPY", name: "USD/JPY", symbol: "USD/JPY", category: "forex", currentPrice: "149.85", priceChange: "0.83", priceChangePercent: "0.56", isActive: true, payoutRate: "83.00" },
+      { id: "AUDUSD", name: "AUD/USD", symbol: "AUD/USD", category: "forex", currentPrice: "0.6550", priceChange: "0.0012", priceChangePercent: "0.18", isActive: true, payoutRate: "82.00" },
+      { id: "USDCAD", name: "USD/CAD", symbol: "USD/CAD", category: "forex", currentPrice: "1.3550", priceChange: "-0.0025", priceChangePercent: "-0.18", isActive: true, payoutRate: "82.00" },
+      { id: "USDCHF", name: "USD/CHF", symbol: "USD/CHF", category: "forex", currentPrice: "0.8845", priceChange: "0.0015", priceChangePercent: "0.17", isActive: true, payoutRate: "81.00" },
+      { id: "NZDUSD", name: "NZD/USD", symbol: "NZD/USD", category: "forex", currentPrice: "0.6125", priceChange: "0.0008", priceChangePercent: "0.13", isActive: true, payoutRate: "81.00" },
+      
+      // Cross Pairs
+      { id: "EURJPY", name: "EUR/JPY", symbol: "EUR/JPY", category: "forex", currentPrice: "162.45", priceChange: "0.52", priceChangePercent: "0.32", isActive: true, payoutRate: "83.00" },
+      { id: "EURGBP", name: "EUR/GBP", symbol: "EUR/GBP", category: "forex", currentPrice: "0.8565", priceChange: "-0.0015", priceChangePercent: "-0.18", isActive: true, payoutRate: "82.00" },
+      { id: "EURAUD", name: "EUR/AUD", symbol: "EUR/AUD", category: "forex", currentPrice: "1.6580", priceChange: "0.0045", priceChangePercent: "0.27", isActive: true, payoutRate: "81.00" },
+      { id: "EURCHF", name: "EUR/CHF", symbol: "EUR/CHF", category: "forex", currentPrice: "0.9605", priceChange: "0.0012", priceChangePercent: "0.13", isActive: true, payoutRate: "81.00" },
+      { id: "GBPJPY", name: "GBP/JPY", symbol: "GBP/JPY", category: "forex", currentPrice: "189.95", priceChange: "1.25", priceChangePercent: "0.66", isActive: true, payoutRate: "82.00" },
+      { id: "AUDCAD", name: "AUD/CAD", symbol: "AUD/CAD", category: "forex", currentPrice: "0.8875", priceChange: "0.0018", priceChangePercent: "0.20", isActive: true, payoutRate: "80.00" },
+      { id: "AUDJPY", name: "AUD/JPY", symbol: "AUD/JPY", category: "forex", currentPrice: "98.15", priceChange: "0.45", priceChangePercent: "0.46", isActive: true, payoutRate: "81.00" },
+      { id: "CHFJPY", name: "CHF/JPY", symbol: "CHF/JPY", category: "forex", currentPrice: "169.35", priceChange: "0.85", priceChangePercent: "0.50", isActive: true, payoutRate: "80.00" },
+      { id: "CADJPY", name: "CAD/JPY", symbol: "CAD/JPY", category: "forex", currentPrice: "110.65", priceChange: "0.35", priceChangePercent: "0.32", isActive: true, payoutRate: "80.00" },
+      { id: "NZDJPY", name: "NZD/JPY", symbol: "NZD/JPY", category: "forex", currentPrice: "91.75", priceChange: "0.28", priceChangePercent: "0.31", isActive: true, payoutRate: "80.00" },
+      
+      // OTC Forex Pairs
+      { id: "EURCAD_OTC", name: "EUR/CAD (OTC)", symbol: "EUR/CAD", category: "forex", currentPrice: "1.4725", priceChange: "0.0035", priceChangePercent: "0.24", isActive: true, payoutRate: "82.00" },
+      { id: "USDJPY_OTC", name: "USD/JPY (OTC)", symbol: "USD/JPY", category: "forex", currentPrice: "149.85", priceChange: "0.83", priceChangePercent: "0.56", isActive: true, payoutRate: "82.00" },
+      { id: "GBPUSD_OTC", name: "GBP/USD (OTC)", symbol: "GBP/USD", category: "forex", currentPrice: "1.2678", priceChange: "-0.0057", priceChangePercent: "-0.45", isActive: true, payoutRate: "82.00" },
+      { id: "EURUSD_OTC", name: "EUR/USD (OTC)", symbol: "EUR/USD", category: "forex", currentPrice: "1.0856", priceChange: "0.0023", priceChangePercent: "0.23", isActive: true, payoutRate: "82.00" },
+      { id: "AUDCAD_OTC", name: "AUD/CAD (OTC)", symbol: "AUD/CAD", category: "forex", currentPrice: "0.8875", priceChange: "0.0018", priceChangePercent: "0.20", isActive: true, payoutRate: "81.00" },
+      { id: "GBPJPY_OTC", name: "GBP/JPY (OTC)", symbol: "GBP/JPY", category: "forex", currentPrice: "189.95", priceChange: "1.25", priceChangePercent: "0.66", isActive: true, payoutRate: "81.00" },
+      
+      // Cryptocurrencies
+      { id: "BTCUSD", name: "Bitcoin", symbol: "BTC/USD", category: "crypto", currentPrice: "43256.50", priceChange: "915.30", priceChangePercent: "2.15", isActive: true, payoutRate: "88.00" },
+      { id: "ETHUSD", name: "Ethereum", symbol: "ETH/USD", category: "crypto", currentPrice: "2287.80", priceChange: "-25.90", priceChangePercent: "-1.12", isActive: true, payoutRate: "87.00" },
+      { id: "LTCUSD", name: "Litecoin", symbol: "LTC/USD", category: "crypto", currentPrice: "72.45", priceChange: "1.85", priceChangePercent: "2.62", isActive: true, payoutRate: "85.00" },
+      { id: "XRPUSD", name: "Ripple", symbol: "XRP/USD", category: "crypto", currentPrice: "0.5245", priceChange: "0.0125", priceChangePercent: "2.44", isActive: true, payoutRate: "85.00" },
+      
+      // Commodities
+      { id: "GOLD", name: "الذهب", symbol: "XAU/USD", category: "commodity", currentPrice: "2045.30", priceChange: "17.85", priceChangePercent: "0.87", isActive: true, payoutRate: "83.00" },
+      { id: "SILVER", name: "الفضة", symbol: "XAG/USD", category: "commodity", currentPrice: "24.65", priceChange: "0.35", priceChangePercent: "1.44", isActive: true, payoutRate: "82.00" },
+      { id: "OIL", name: "النفط", symbol: "WTI", category: "commodity", currentPrice: "78.45", priceChange: "0.95", priceChangePercent: "1.23", isActive: true, payoutRate: "81.00" },
+      
+      // Indices
+      { id: "SPX", name: "S&P 500", symbol: "SPX", category: "index", currentPrice: "4567.20", priceChange: "41.75", priceChangePercent: "0.92", isActive: true, payoutRate: "80.00" },
+      { id: "NDX", name: "NASDAQ 100", symbol: "NDX", category: "index", currentPrice: "15892.50", priceChange: "125.30", priceChangePercent: "0.80", isActive: true, payoutRate: "79.00" },
+      { id: "DJI", name: "Dow Jones", symbol: "DJI", category: "index", currentPrice: "36789.45", priceChange: "215.80", priceChangePercent: "0.59", isActive: true, payoutRate: "79.00" },
+      { id: "DAX", name: "DAX 40", symbol: "DAX", category: "index", currentPrice: "16245.75", priceChange: "95.50", priceChangePercent: "0.59", isActive: true, payoutRate: "78.00" },
+      { id: "CAC40", name: "CAC 40", symbol: "CAC40", category: "index", currentPrice: "7456.30", priceChange: "52.15", priceChangePercent: "0.70", isActive: true, payoutRate: "78.00" },
+      
+      // OTC Indices
+      { id: "DAX_OTC", name: "DAX/EUR (OTC)", symbol: "DAX/EUR", category: "index", currentPrice: "16245.75", priceChange: "95.50", priceChangePercent: "0.59", isActive: true, payoutRate: "79.00" },
+      { id: "NDX_OTC", name: "NDX/USD (OTC)", symbol: "NDX/USD", category: "index", currentPrice: "15892.50", priceChange: "125.30", priceChangePercent: "0.80", isActive: true, payoutRate: "79.00" },
+      { id: "DJI_OTC", name: "DJI/USD (OTC)", symbol: "DJI/USD", category: "index", currentPrice: "36789.45", priceChange: "215.80", priceChangePercent: "0.59", isActive: true, payoutRate: "79.00" },
+      { id: "SPX_OTC", name: "SPX/USD (OTC)", symbol: "SPX/USD", category: "index", currentPrice: "4567.20", priceChange: "41.75", priceChangePercent: "0.92", isActive: true, payoutRate: "79.00" }
     ];
 
     defaultAssets.forEach(asset => {

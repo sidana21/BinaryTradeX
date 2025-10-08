@@ -185,6 +185,8 @@ export default function TradingPage() {
               asset={state.selectedAsset}
               timeframe={state.selectedTimeframe}
               onTimeframeChange={(timeframe) => updateState({ selectedTimeframe: timeframe })}
+              openTrades={openTrades}
+              tradeHistory={tradeHistory}
             />
           </div>
 

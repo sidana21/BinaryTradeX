@@ -14,7 +14,8 @@ export function AssetList({ assets, selectedAsset, onAssetSelect, isLoading }: A
 
   const categories = [
     { key: 'all', label: 'الكل' },
-    { key: 'forex', label: 'عملات' },
+    { key: 'forex', label: 'فوركس' },
+    { key: 'otc', label: 'OTC' },
     { key: 'crypto', label: 'عملات رقمية' },
     { key: 'commodity', label: 'سلع' },
     { key: 'index', label: 'مؤشرات' },
@@ -23,7 +24,12 @@ export function AssetList({ assets, selectedAsset, onAssetSelect, isLoading }: A
   const filteredAssets = assets.filter(asset => {
     const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          asset.symbol.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || asset.category === selectedCategory;
+    const isOTC = asset.name.includes('OTC') || asset.id.includes('OTC');
+    const assetCategory = isOTC ? 'otc' : asset.category;
+    const matchesCategory = selectedCategory === 'all' || 
+                           (selectedCategory === 'otc' && isOTC) ||
+                           (selectedCategory === 'forex' && asset.category === 'forex' && !isOTC) ||
+                           (selectedCategory !== 'otc' && selectedCategory !== 'forex' && asset.category === selectedCategory);
     return matchesSearch && matchesCategory && asset.isActive;
   });
 
@@ -117,10 +123,11 @@ export function AssetList({ assets, selectedAsset, onAssetSelect, isLoading }: A
           const isPositive = priceChange >= 0;
           
           return (
-            <div
+            <button
               key={asset.id}
               onClick={() => onAssetSelect(asset)}
-              className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
+              data-testid={`asset-${asset.id}`}
+              className={`w-full flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${
                 selectedAsset?.id === asset.id
                   ? 'border-primary bg-primary/10'
                   : 'border-border hover:bg-secondary/50'
@@ -144,7 +151,7 @@ export function AssetList({ assets, selectedAsset, onAssetSelect, isLoading }: A
                   <span>{isPositive ? '+' : ''}{asset.priceChangePercent}%</span>
                 </div>
               </div>
-            </div>
+            </button>
           );
         })}
         

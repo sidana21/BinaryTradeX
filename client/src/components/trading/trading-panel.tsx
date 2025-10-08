@@ -90,84 +90,123 @@ export function TradingPanel({
         </div>
       </div>
 
-      {/* Investment Amount */}
+      {/* Investment Amount - Pocket Option Style */}
       <div>
-        <label className="block text-sm font-medium mb-2 text-muted-foreground">مبلغ الاستثمار</label>
-        <div className="relative">
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">$</span>
-          <input
-            type="number"
-            value={tradeAmount}
-            onChange={handleAmountChange}
-            min="1"
-            max="1000"
-            className="w-full bg-secondary border border-input rounded-lg pr-8 pl-4 py-3 text-lg font-bold font-mono focus:ring-2 focus:ring-ring transition-all"
-          />
+        <label className="block text-sm font-semibold mb-3 text-foreground">مبلغ الاستثمار</label>
+        <div className="relative bg-gradient-to-r from-secondary/80 to-secondary rounded-xl p-1 border border-border/50">
+          <div className="flex items-center gap-2 bg-background/50 rounded-lg px-4 py-2">
+            <span className="text-xl font-bold text-accent">$</span>
+            <input
+              type="number"
+              value={tradeAmount}
+              onChange={handleAmountChange}
+              min="1"
+              max="1000"
+              data-testid="input-amount"
+              className="flex-1 bg-transparent border-0 outline-none text-2xl font-bold font-mono focus:ring-0 text-foreground"
+            />
+            <div className="flex gap-1">
+              <button
+                onClick={() => handleQuickAmount(-10)}
+                className="w-8 h-8 bg-secondary hover:bg-muted rounded-md flex items-center justify-center transition-colors"
+                data-testid="button-decrease"
+              >
+                <i className="fas fa-minus text-xs"></i>
+              </button>
+              <button
+                onClick={() => handleQuickAmount(10)}
+                className="w-8 h-8 bg-secondary hover:bg-muted rounded-md flex items-center justify-center transition-colors"
+                data-testid="button-increase"
+              >
+                <i className="fas fa-plus text-xs"></i>
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center justify-between mt-3">
           <div className="flex gap-2">
             {quickAmountButtons.map(amount => (
               <button
                 key={amount}
                 onClick={() => handleQuickAmount(amount)}
-                className="px-3 py-1 bg-secondary hover:bg-muted rounded text-xs font-medium transition-colors"
+                className="px-4 py-1.5 bg-gradient-to-r from-primary/10 to-primary/20 hover:from-primary/20 hover:to-primary/30 border border-primary/30 rounded-lg text-xs font-semibold text-primary transition-all"
+                data-testid={`button-quick-${amount}`}
               >
-                +{amount}
+                +${amount}
               </button>
             ))}
           </div>
           <button
             onClick={handleMaxAmount}
-            className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+            className="px-3 py-1.5 bg-gradient-to-r from-accent/10 to-accent/20 border border-accent/30 rounded-lg text-xs font-semibold text-accent hover:from-accent/20 hover:to-accent/30 transition-all"
+            data-testid="button-max"
           >
+            <i className="fas fa-arrow-up mr-1"></i>
             الحد الأقصى
           </button>
         </div>
       </div>
 
-      {/* Payout Display */}
+      {/* Payout Display - Enhanced */}
       {selectedAsset && (
-        <div className="bg-secondary/50 rounded-lg p-4 border border-border">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">العائد المحتمل</span>
-            <span className="text-lg font-bold text-accent">{payoutRate.toFixed(0)}%</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">الربح المحتمل</span>
-            <span className="text-xl font-bold font-mono text-success">
-              ${potentialProfit.toFixed(2)}
-            </span>
+        <div className="relative bg-gradient-to-br from-accent/10 via-accent/5 to-transparent rounded-xl p-4 border border-accent/20 overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full -translate-y-16 translate-x-16"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-accent/20 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-percentage text-accent text-sm"></i>
+                </div>
+                <span className="text-sm font-medium text-muted-foreground">نسبة العائد</span>
+              </div>
+              <div className="px-3 py-1 bg-accent/20 rounded-lg">
+                <span className="text-lg font-bold text-accent">{payoutRate.toFixed(0)}%</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-3 border-t border-accent/10">
+              <span className="text-sm font-medium text-muted-foreground">الربح المحتمل</span>
+              <div className="flex items-center gap-2">
+                <i className="fas fa-dollar-sign text-emerald-500 text-sm"></i>
+                <span className="text-2xl font-bold font-mono bg-gradient-to-r from-emerald-500 to-emerald-400 bg-clip-text text-transparent">
+                  {potentialProfit.toFixed(2)}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Trade Buttons */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Trade Buttons - Pocket Option Style */}
+      <div className="grid grid-cols-2 gap-4">
         <button
           onClick={() => onExecuteTrade('CALL')}
           disabled={!canTrade}
-          className="bg-success hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed text-success-foreground py-4 rounded-lg font-bold text-lg transition-all flex items-center justify-center gap-2"
+          data-testid="button-buy"
+          className="relative bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white py-6 rounded-xl font-bold text-xl transition-all flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-emerald-500/50 active:scale-95"
         >
           {isExecuting ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
           ) : (
             <>
-              <i className="fas fa-arrow-up"></i>
-              <span>صعود</span>
+              <i className="fas fa-arrow-up text-2xl"></i>
+              <span>شراء</span>
+              <span className="text-xs font-normal opacity-90">CALL</span>
             </>
           )}
         </button>
         <button
           onClick={() => onExecuteTrade('PUT')}
           disabled={!canTrade}
-          className="bg-destructive hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed text-destructive-foreground py-4 rounded-lg font-bold text-lg transition-all flex items-center justify-center gap-2"
+          data-testid="button-sell"
+          className="relative bg-gradient-to-br from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white py-6 rounded-xl font-bold text-xl transition-all flex flex-col items-center justify-center gap-2 shadow-lg hover:shadow-rose-500/50 active:scale-95"
         >
           {isExecuting ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            <div className="w-6 h-6 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
           ) : (
             <>
-              <i className="fas fa-arrow-down"></i>
-              <span>هبوط</span>
+              <i className="fas fa-arrow-down text-2xl"></i>
+              <span>بيع</span>
+              <span className="text-xs font-normal opacity-90">PUT</span>
             </>
           )}
         </button>
