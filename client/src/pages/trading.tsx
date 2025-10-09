@@ -125,19 +125,26 @@ export default function TradingPage() {
       </header>
 
       {/* Asset Selector Bar */}
-      <div className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2">
+      <div className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2 relative z-40">
         <div className="flex items-center justify-between">
-          <button 
+          <div 
             onClick={() => {
-              console.log('Asset selector button clicked');
+              console.log('Asset selector div clicked');
               setIsAssetsOpen(true);
             }}
-            className="flex items-center gap-2 text-white font-medium"
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              console.log('Asset selector touch');
+              setIsAssetsOpen(true);
+            }}
+            className="flex items-center gap-2 text-white font-medium cursor-pointer py-2 px-3 -ml-3 hover:bg-[#1a1f3a] rounded-lg transition-colors touch-manipulation"
             data-testid="button-select-asset"
+            role="button"
+            tabIndex={0}
           >
-            <span className="text-base">{state.selectedAsset?.name || 'اختر زوج'}</span>
-            <i className="fas fa-chevron-down text-xs text-gray-400"></i>
-          </button>
+            <span className="text-base pointer-events-none">{state.selectedAsset?.name || 'اختر زوج'}</span>
+            <i className="fas fa-chevron-down text-xs text-gray-400 pointer-events-none"></i>
+          </div>
           
           <div className="flex items-center gap-4">
             <span className="text-xs text-gray-500">
@@ -151,7 +158,7 @@ export default function TradingPage() {
         
         {/* Current Price */}
         {state.selectedAsset && (
-          <div className="mt-1">
+          <div className="mt-1 pointer-events-none">
             <span className="text-2xl font-bold text-white">{currentPrice ? currentPrice.toFixed(5) : state.selectedAsset.currentPrice}</span>
           </div>
         )}
