@@ -158,36 +158,62 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     };
   }, [pair]);
 
-  // markers
+  // markers and price lines for visual indicators
   useEffect(() => {
-    if (!seriesRef.current || !seriesRef.current.setMarkers) return;
-    const markers: any[] = [];
-    trades.forEach((t) => {
-      // Entry marker - arrow at entry point
-      markers.push({
-        time: t.entryTime as any,
-        position: t.type === "buy" ? "belowBar" : "aboveBar",
-        shape: t.type === "buy" ? "arrowUp" : "arrowDown",
-        color: t.type === "buy" ? "#26a69a" : "#ef5350",
-        text: t.type === "buy" ? "شراء" : "بيع",
+    if (!seriesRef.current) return;
+    
+    // Try to set markers if supported
+    if (seriesRef.current.setMarkers) {
+      const markers: any[] = [];
+      trades.forEach((t) => {
+        // Entry marker - arrow at entry point
+        markers.push({
+          time: t.entryTime as any,
+          position: t.type === "buy" ? "belowBar" : "aboveBar",
+          shape: t.type === "buy" ? "arrowUp" : "arrowDown",
+          color: t.type === "buy" ? "#26a69a" : "#ef5350",
+          text: t.type === "buy" ? "↑" : "↓",
+          size: 2,
+        });
+        
+        // Exit marker - square at exit point when trade is completed
+        if (t.result) {
+          markers.push({
+            time: t.exitTime as any,
+            position: t.result === "win" ? "aboveBar" : "belowBar",
+            shape: "circle",
+            color: t.result === "win" ? "#26a69a" : "#ef5350",
+            text: t.result === "win" ? "✓" : "✗",
+            size: 2,
+          });
+        }
       });
       
-      // Exit marker - square at exit point when trade is completed
-      if (t.result) {
-        markers.push({
-          time: t.exitTime as any,
-          position: t.result === "win" ? "aboveBar" : "belowBar",
-          shape: "square",
-          color: t.result === "win" ? "#26a69a" : "#ef5350",
-          text: t.result === "win" ? `ربح` : `خسارة`,
-        });
+      try {
+        seriesRef.current.setMarkers(markers);
+        console.log("Markers set successfully:", markers.length);
+      } catch (e) {
+        console.error("Error setting markers:", e);
+      }
+    }
+    
+    // Add price lines for entry points as backup visual indicator
+    trades.forEach((t) => {
+      if (!t.result) {
+        try {
+          const priceLine = seriesRef.current?.createPriceLine({
+            price: t.entryPrice,
+            color: t.type === "buy" ? "#26a69a" : "#ef5350",
+            lineWidth: 2,
+            lineStyle: 2, // Dashed
+            axisLabelVisible: true,
+            title: t.type === "buy" ? "↑ شراء" : "↓ بيع",
+          });
+        } catch (e) {
+          console.log("Price lines not fully supported");
+        }
       }
     });
-    try {
-      seriesRef.current.setMarkers(markers);
-    } catch (e) {
-      console.log("Markers not supported in this version");
-    }
   }, [trades]);
 
   // Calculate countdown and profit/loss for active trades
@@ -196,7 +222,56 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
 
   return (
     <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative">
-      <div ref={containerRef} className="flex-1 w-full" data-testid="otc-chart" />
+      <div ref={containerRef} className="flex-1 w-full relative" data-testid="otc-chart">
+        {/* Visual Trade Markers Overlay */}
+        {trades.map((t) => {
+          // Calculate position based on time (simplified - assumes uniform spacing)
+          const chartWidth = containerRef.current?.clientWidth || 0;
+          const rightOffset = 60; // Offset from right edge
+          
+          return (
+            <div key={`marker-${t.id}`}>
+              {/* Entry Arrow */}
+              <div 
+                className="absolute z-20 pointer-events-none"
+                style={{ 
+                  right: `${rightOffset}px`,
+                  top: '50%',
+                  transform: 'translateY(-50%)'
+                }}
+              >
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                  t.type === 'buy' ? 'bg-green-500' : 'bg-red-500'
+                } shadow-lg animate-pulse`}>
+                  <span className="text-white text-2xl font-bold">
+                    {t.type === 'buy' ? '↑' : '↓'}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Exit marker when trade completes */}
+              {t.result && (
+                <div 
+                  className="absolute z-20 pointer-events-none"
+                  style={{ 
+                    right: `${rightOffset + 80}px`,
+                    top: '50%',
+                    transform: 'translateY(-50%)'
+                  }}
+                >
+                  <div className={`flex items-center justify-center w-8 h-8 ${
+                    t.result === 'win' ? 'bg-green-600' : 'bg-red-600'
+                  } shadow-lg`} style={{ clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }}>
+                    <span className="text-white text-sm font-bold">
+                      {t.result === 'win' ? '✓' : '✗'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       {/* Countdown timer overlay for active trades */}
       {activeTrades.map((t) => {
@@ -206,7 +281,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         return (
           <div 
             key={`timer-${t.id}`}
-            className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600/90 to-blue-500/90 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg z-10"
+            className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-blue-600/90 to-blue-500/90 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg z-30"
             data-testid={`countdown-${t.id}`}
           >
             <div className="flex items-center gap-3">
