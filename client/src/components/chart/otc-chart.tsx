@@ -41,6 +41,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const wsRef = useRef<WebSocket | null>(null);
   const tradeIdRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const currentPairRef = useRef(pair);
 
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => lastPrice,
@@ -69,6 +70,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     return () => clearInterval(interval);
   }, []);
 
+  // Initialize chart and WebSocket once
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -107,7 +109,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         const message = JSON.parse(ev.data);
         if (message.type === 'otc_candle') {
           const candle: Candle = message.data;
-          if (candle.pair === pair) {
+          if (candle.pair === currentPairRef.current) {
             const formatted: CandlestickData = {
               time: candle.time as any,
               open: candle.open,
@@ -157,6 +159,16 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       ws.close();
       chart.remove();
     };
+  }, []);
+
+  // Update current pair ref and clear series data when pair changes
+  useEffect(() => {
+    currentPairRef.current = pair;
+    if (seriesRef.current) {
+      seriesRef.current.setData([]);
+      setLastPrice(0);
+      setTrades([]);
+    }
   }, [pair]);
 
   // Price lines and markers for entry/exit visualization (Quotex/IQ Option style)
