@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'wouter';
-import { TradingChart } from '@/components/chart/trading-chart';
 import { AssetList } from '@/components/trading/asset-list';
 import { TradingPanel } from '@/components/trading/trading-panel';
 import { TradesPanel } from '@/components/trading/trades-panel';
@@ -158,14 +157,11 @@ export default function TradingPage() {
       </div>
 
       {/* Main Chart Area - Full Width */}
-      <div className="flex-1 overflow-hidden bg-[#0a0e27]">
-        <TradingChart
-          asset={state.selectedAsset}
-          timeframe={state.selectedTimeframe}
-          onTimeframeChange={(timeframe) => updateState({ selectedTimeframe: timeframe })}
-          openTrades={openTrades}
-          tradeHistory={tradeHistory}
-        />
+      <div className="flex-1 overflow-hidden bg-[#0a0e27] flex items-center justify-center">
+        <div className="text-gray-500 text-center">
+          <p className="text-lg">منطقة الشارت</p>
+          <p className="text-sm mt-2">سيتم إضافة الشارت هنا</p>
+        </div>
       </div>
 
       {/* Bottom Trading Panel - Exact Pocket Option Style */}
