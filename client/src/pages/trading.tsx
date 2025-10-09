@@ -125,40 +125,30 @@ export default function TradingPage() {
       </header>
 
       {/* Asset Selector Bar */}
-      <div className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2 relative z-40">
-        <div className="flex items-center justify-between">
-          <div 
-            onClick={() => {
-              console.log('Asset selector div clicked');
-              setIsAssetsOpen(true);
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              console.log('Asset selector touch');
-              setIsAssetsOpen(true);
-            }}
-            className="flex items-center gap-2 text-white font-medium cursor-pointer py-2 px-3 -ml-3 hover:bg-[#1a1f3a] rounded-lg transition-colors touch-manipulation"
-            data-testid="button-select-asset"
-            role="button"
-            tabIndex={0}
-          >
-            <span className="text-base pointer-events-none">{state.selectedAsset?.name || 'اختر زوج'}</span>
-            <i className="fas fa-chevron-down text-xs text-gray-400 pointer-events-none"></i>
-          </div>
-          
-          <div className="flex items-center gap-4">
+      <div className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2 relative">
+        <button 
+          type="button"
+          onClick={() => {
+            console.log('Asset selector BUTTON clicked');
+            setIsAssetsOpen(true);
+          }}
+          className="w-full text-left bg-[#1a1f3a] hover:bg-[#252b4a] rounded-lg px-3 py-2.5 mb-2 transition-colors"
+          data-testid="button-select-asset"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-white font-semibold text-base">{state.selectedAsset?.name || 'اختر زوج'}</span>
+              <i className="fas fa-chevron-down text-xs text-blue-400"></i>
+            </div>
             <span className="text-xs text-gray-500">
               {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} UTC+1
             </span>
-            <button className="text-gray-400">
-              <i className="fas fa-ellipsis-h"></i>
-            </button>
           </div>
-        </div>
+        </button>
         
         {/* Current Price */}
         {state.selectedAsset && (
-          <div className="mt-1 pointer-events-none">
+          <div>
             <span className="text-2xl font-bold text-white">{currentPrice ? currentPrice.toFixed(5) : state.selectedAsset.currentPrice}</span>
           </div>
         )}
