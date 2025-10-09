@@ -15,6 +15,7 @@ export interface IStorage {
   updateAssetPrice(id: string, price: string, change: string, changePercent: string): Promise<Asset | undefined>;
 
   // Trades
+  getTrade(id: string): Promise<Trade | undefined>;
   getTradesByUser(userId: string): Promise<Trade[]>;
   getOpenTradesByUser(userId: string): Promise<Trade[]>;
   createTrade(trade: InsertTrade): Promise<Trade>;
@@ -154,6 +155,10 @@ export class MemStorage implements IStorage {
   }
 
   // Trades
+  async getTrade(id: string): Promise<Trade | undefined> {
+    return this.trades.get(id);
+  }
+
   async getTradesByUser(userId: string): Promise<Trade[]> {
     return Array.from(this.trades.values()).filter(trade => trade.userId === userId);
   }
@@ -173,6 +178,7 @@ export class MemStorage implements IStorage {
       status: "open",
       payout: null,
       isDemo: trade.isDemo ?? true,
+      shouldWin: trade.shouldWin ?? false,
       createdAt: new Date()
     };
     this.trades.set(id, newTrade);

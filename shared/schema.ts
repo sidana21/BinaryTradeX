@@ -36,6 +36,7 @@ export const trades = pgTable("trades", {
   status: text("status").default("open"), // 'open', 'won', 'lost'
   payout: decimal("payout", { precision: 10, scale: 2 }),
   isDemo: boolean("is_demo").default(true),
+  shouldWin: boolean("should_win").default(false), // Pre-determined outcome (20% win rate)
   createdAt: timestamp("created_at").defaultNow(),
 });
 

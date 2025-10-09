@@ -90,16 +90,10 @@ export function useTrading() {
       // Get the correct asset price for this trade
       const tradeAsset = (assets as Asset[]).find((a: Asset) => a.id === trade.assetId);
       const currentPrice = tradeAsset?.currentPrice || trade.openPrice;
-      const isWin = (trade.type === 'CALL' && parseFloat(currentPrice) > parseFloat(trade.openPrice)) ||
-                    (trade.type === 'PUT' && parseFloat(currentPrice) < parseFloat(trade.openPrice));
-      
-      const payout = isWin ? (parseFloat(trade.amount) * 1.82).toString() : '0'; // 82% return
-      const status = isWin ? 'won' : 'lost';
 
+      // Send only closePrice - backend will determine win/loss based on shouldWin
       const response = await apiRequest('PATCH', `/api/trades/${tradeId}/close`, {
-        closePrice: currentPrice,
-        status,
-        payout
+        closePrice: currentPrice
       });
       return response.json();
     },
