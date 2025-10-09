@@ -5,20 +5,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/hooks/use-websocket';
 import type { Asset } from '@shared/schema';
 import { TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
-
-interface Candle {
-  timestamp: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
+import OtcChart from '@/components/chart/otc-chart';
 
 export default function MobileTradingPage() {
   const { toast } = useToast();
   const { lastMessage } = useWebSocket('/ws');
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [tradeAmount, setTradeAmount] = useState(10);
   const [tradeDuration, setTradeDuration] = useState(1);
@@ -31,13 +22,6 @@ export default function MobileTradingPage() {
   // Fetch assets
   const { data: assets = [] } = useQuery<Asset[]>({
     queryKey: ['/api/assets'],
-  });
-
-  // Fetch candle data
-  const { data: candles = [] } = useQuery<Candle[]>({
-    queryKey: [`/api/binomo/candles/${selectedAsset?.id}/1m`],
-    enabled: !!selectedAsset,
-    refetchInterval: 8000,
   });
 
   // Set default asset
@@ -103,146 +87,6 @@ export default function MobileTradingPage() {
     }
   });
 
-  // Draw chart
-  useEffect(() => {
-    if (!canvasRef.current || candles.length === 0) return;
-
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-    const width = rect.width;
-    const height = rect.height;
-
-    // Clear canvas with dark background
-    const bgGradient = ctx.createLinearGradient(0, 0, 0, height);
-    bgGradient.addColorStop(0, '#0f1419');
-    bgGradient.addColorStop(1, '#0a0e13');
-    ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, width, height);
-
-    // Calculate price range
-    const prices = candles.flatMap(c => [c.high, c.low]);
-    const maxPrice = Math.max(...prices);
-    const minPrice = Math.min(...prices);
-    const priceRange = maxPrice - minPrice || 1;
-    const padding = priceRange * 0.08;
-
-    // Calculate dimensions
-    const rightMargin = 70;
-    const leftMargin = 5;
-    const topMargin = 10;
-    const bottomMargin = 25;
-    const chartWidth = width - leftMargin - rightMargin;
-    const chartHeight = height - topMargin - bottomMargin;
-    
-    const visibleCandles = Math.min(candles.length, 100);
-    const candleWidth = (chartWidth / visibleCandles) * 0.7;
-    const candleSpacing = chartWidth / visibleCandles;
-    const startIndex = Math.max(0, candles.length - visibleCandles);
-
-    // Scale price to Y coordinate
-    const scalePrice = (price: number) => {
-      return topMargin + chartHeight - ((price - (minPrice - padding)) / (priceRange + padding * 2)) * chartHeight;
-    };
-
-    // Draw horizontal grid lines
-    const gridSteps = 8;
-    for (let i = 0; i <= gridSteps; i++) {
-      const price = minPrice - padding + (priceRange + padding * 2) * (i / gridSteps);
-      const y = scalePrice(price);
-      
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(leftMargin, y);
-      ctx.lineTo(width - rightMargin, y);
-      ctx.stroke();
-      
-      // Price labels
-      const labelText = price.toFixed(3);
-      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
-      const textMetrics = ctx.measureText(labelText);
-      
-      ctx.fillStyle = 'rgba(15, 20, 25, 0.9)';
-      ctx.fillRect(width - rightMargin + 2, y - 8, textMetrics.width + 6, 16);
-      
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(labelText, width - rightMargin + 5, y);
-    }
-
-    // Draw candlesticks
-    candles.slice(startIndex).forEach((candle, i) => {
-      const x = leftMargin + i * candleSpacing + candleSpacing / 2;
-      const isGreen = candle.close >= candle.open;
-      
-      const openY = scalePrice(candle.open);
-      const closeY = scalePrice(candle.close);
-      const highY = scalePrice(candle.high);
-      const lowY = scalePrice(candle.low);
-      
-      const bodyHeight = Math.max(Math.abs(closeY - openY), 1);
-      const bodyY = Math.min(openY, closeY);
-      
-      const greenColor = '#22c55e';
-      const redColor = '#ef4444';
-      
-      // Draw wick
-      ctx.strokeStyle = isGreen ? greenColor : redColor;
-      ctx.lineWidth = Math.max(1, candleWidth * 0.15);
-      ctx.beginPath();
-      ctx.moveTo(x, highY);
-      ctx.lineTo(x, lowY);
-      ctx.stroke();
-      
-      // Draw body
-      ctx.fillStyle = isGreen ? greenColor : redColor;
-      const finalWidth = Math.max(1, candleWidth);
-      ctx.fillRect(x - finalWidth/2, bodyY, finalWidth, bodyHeight);
-    });
-
-    // Draw current price line
-    if (selectedAsset && currentPriceRef.current > 0) {
-      const priceValue = currentPriceRef.current;
-      const currentPriceY = scalePrice(priceValue);
-      
-      ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([8, 4]);
-      ctx.beginPath();
-      ctx.moveTo(leftMargin, currentPriceY);
-      ctx.lineTo(width - rightMargin, currentPriceY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      
-      // Current price label
-      const priceText = priceValue.toFixed(3);
-      ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
-      const textWidth = ctx.measureText(priceText).width;
-      
-      const gradient = ctx.createLinearGradient(
-        width - rightMargin, currentPriceY - 11,
-        width - rightMargin, currentPriceY + 11
-      );
-      gradient.addColorStop(0, '#3b82f6');
-      gradient.addColorStop(1, '#2563eb');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(width - rightMargin, currentPriceY - 11, textWidth + 10, 22);
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(priceText, width - rightMargin + 5, currentPriceY);
-    }
-  }, [candles, selectedAsset]);
 
   const currentPrice = currentPriceRef.current || (selectedAsset ? parseFloat(selectedAsset.currentPrice) : 0);
   const profit = (tradeAmount * payout / 100).toFixed(2);
@@ -291,11 +135,7 @@ export default function MobileTradingPage() {
 
       {/* Chart */}
       <div className="flex-1 relative">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full"
-          data-testid="mobile-chart-canvas"
-        />
+        {selectedAsset && <OtcChart assetId={selectedAsset.id} />}
       </div>
 
       {/* Trading Controls */}
