@@ -391,6 +391,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start price simulation
   setInterval(simulatePrices, 5000); // Update every 5 seconds
 
+  // OTC Market simulation
+  let otcMarkets: Record<string, number> = {
+    "EURUSD": 1.1000,
+    "USDJPY": 149.300,
+    "GBPUSD": 1.2500,
+  };
+
+  const generateOtcCandle = (pair: string) => {
+    const last = otcMarkets[pair];
+    const close = last + (Math.random() - 0.5) * (pair === "USDJPY" ? 0.05 : 0.01);
+    const high = Math.max(last, close) + Math.random() * 0.005;
+    const low = Math.min(last, close) - Math.random() * 0.005;
+    otcMarkets[pair] = close;
+
+    return {
+      pair,
+      time: Math.floor(Date.now() / 1000),
+      open: last,
+      high,
+      low,
+      close,
+    };
+  };
+
+  // Send OTC candles every 3 seconds
+  setInterval(() => {
+    for (let pair in otcMarkets) {
+      const candle = generateOtcCandle(pair);
+      const message = JSON.stringify({
+        type: 'otc_candle',
+        data: candle
+      });
+      
+      connectedClients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      });
+    }
+  }, 3000);
+
   // Trade expiry checker
   const checkTradeExpiry = () => {
     // This would normally check all open trades and close expired ones
