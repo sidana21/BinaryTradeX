@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import MobileTradingPage from "@/pages/mobile-trading";
 import TradingPage from "@/pages/trading";
 import BinomoPage from "@/pages/binomo";
-import OtcMarketPage from "@/pages/otc-market";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,7 +14,6 @@ function Router() {
       <Route path="/" component={MobileTradingPage} />
       <Route path="/trading" component={TradingPage} />
       <Route path="/binomo" component={BinomoPage} />
-      <Route path="/otc" component={OtcMarketPage} />
       <Route component={NotFound} />
     </Switch>
   );
