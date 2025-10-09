@@ -158,63 +158,106 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     };
   }, [pair]);
 
-  // markers and price lines for visual indicators
+  // Price lines and markers for entry/exit visualization (Quotex/IQ Option style)
+  const priceLineRefsRef = useRef<any[]>([]);
+  
   useEffect(() => {
     if (!seriesRef.current) return;
     
-    // Try to set markers if supported
+    // Clear old price lines
+    priceLineRefsRef.current.forEach(line => {
+      try {
+        seriesRef.current?.removePriceLine(line);
+      } catch (e) {}
+    });
+    priceLineRefsRef.current = [];
+    
+    // Set markers for arrows on candles
     if (seriesRef.current.setMarkers) {
       const markers: any[] = [];
       trades.forEach((t) => {
-        // Entry marker - arrow at entry point
+        // Entry marker - arrow at entry candle
         markers.push({
           time: t.entryTime as any,
           position: t.type === "buy" ? "belowBar" : "aboveBar",
           shape: t.type === "buy" ? "arrowUp" : "arrowDown",
           color: t.type === "buy" ? "#26a69a" : "#ef5350",
-          text: t.type === "buy" ? "↑" : "↓",
+          text: "",
           size: 2,
         });
         
-        // Exit marker - square at exit point when trade is completed
+        // Exit marker when trade completes
         if (t.result) {
           markers.push({
             time: t.exitTime as any,
-            position: t.result === "win" ? "aboveBar" : "belowBar",
+            position: "inBar",
             shape: "circle",
             color: t.result === "win" ? "#26a69a" : "#ef5350",
-            text: t.result === "win" ? "✓" : "✗",
-            size: 2,
+            text: "",
+            size: 1,
           });
         }
       });
       
       try {
         seriesRef.current.setMarkers(markers);
-        console.log("Markers set successfully:", markers.length);
       } catch (e) {
-        console.error("Error setting markers:", e);
+        console.log("Markers:", e);
       }
     }
     
-    // Add price lines for entry points as backup visual indicator
+    // Create horizontal price lines for entry and exit (like Quotex/IQ Option)
     trades.forEach((t) => {
-      if (!t.result) {
-        try {
-          const priceLine = seriesRef.current?.createPriceLine({
+      try {
+        // Entry price line - always show for active trades
+        if (!t.result) {
+          const entryLine = seriesRef.current?.createPriceLine({
             price: t.entryPrice,
             color: t.type === "buy" ? "#26a69a" : "#ef5350",
             lineWidth: 2,
-            lineStyle: 2, // Dashed
+            lineStyle: 2, // Dashed line
             axisLabelVisible: true,
-            title: t.type === "buy" ? "↑ شراء" : "↓ بيع",
+            title: t.type === "buy" ? "دخول ↑" : "دخول ↓",
           });
-        } catch (e) {
-          console.log("Price lines not fully supported");
+          if (entryLine) priceLineRefsRef.current.push(entryLine);
+        } else {
+          // For completed trades, show both entry and exit lines
+          const entryLine = seriesRef.current?.createPriceLine({
+            price: t.entryPrice,
+            color: "#888888",
+            lineWidth: 1,
+            lineStyle: 2,
+            axisLabelVisible: false,
+            title: "",
+          });
+          if (entryLine) priceLineRefsRef.current.push(entryLine);
+          
+          // Exit price line with win/loss color
+          const exitColor = t.result === "win" ? "#26a69a" : "#ef5350";
+          const exitLine = seriesRef.current?.createPriceLine({
+            price: lastPrice, // Use current price as approximation
+            color: exitColor,
+            lineWidth: 2,
+            lineStyle: 0, // Solid line
+            axisLabelVisible: true,
+            title: t.result === "win" ? "ربح ✓" : "خسارة ✗",
+          });
+          if (exitLine) priceLineRefsRef.current.push(exitLine);
         }
+      } catch (e) {
+        console.log("Price line error:", e);
       }
     });
-  }, [trades]);
+    
+    return () => {
+      // Cleanup price lines on unmount
+      priceLineRefsRef.current.forEach(line => {
+        try {
+          seriesRef.current?.removePriceLine(line);
+        } catch (e) {}
+      });
+    };
+  }, [trades, lastPrice]);
 
   // Calculate countdown and profit/loss for active trades
   const activeTrades = trades.filter(t => !t.result);
@@ -222,56 +265,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
 
   return (
     <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative">
-      <div ref={containerRef} className="flex-1 w-full relative" data-testid="otc-chart">
-        {/* Visual Trade Markers Overlay */}
-        {trades.map((t) => {
-          // Calculate position based on time (simplified - assumes uniform spacing)
-          const chartWidth = containerRef.current?.clientWidth || 0;
-          const rightOffset = 60; // Offset from right edge
-          
-          return (
-            <div key={`marker-${t.id}`}>
-              {/* Entry Arrow */}
-              <div 
-                className="absolute z-20 pointer-events-none"
-                style={{ 
-                  right: `${rightOffset}px`,
-                  top: '50%',
-                  transform: 'translateY(-50%)'
-                }}
-              >
-                <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
-                  t.type === 'buy' ? 'bg-green-500' : 'bg-red-500'
-                } shadow-lg animate-pulse`}>
-                  <span className="text-white text-2xl font-bold">
-                    {t.type === 'buy' ? '↑' : '↓'}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Exit marker when trade completes */}
-              {t.result && (
-                <div 
-                  className="absolute z-20 pointer-events-none"
-                  style={{ 
-                    right: `${rightOffset + 80}px`,
-                    top: '50%',
-                    transform: 'translateY(-50%)'
-                  }}
-                >
-                  <div className={`flex items-center justify-center w-8 h-8 ${
-                    t.result === 'win' ? 'bg-green-600' : 'bg-red-600'
-                  } shadow-lg`} style={{ clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }}>
-                    <span className="text-white text-sm font-bold">
-                      {t.result === 'win' ? '✓' : '✗'}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <div ref={containerRef} className="flex-1 w-full" data-testid="otc-chart" />
 
       {/* Countdown timer overlay for active trades */}
       {activeTrades.map((t) => {
