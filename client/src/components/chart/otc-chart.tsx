@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { createChart, IChartApi, CandlestickData, CandlestickSeries } from "lightweight-charts";
 
 interface Candle {
@@ -19,9 +19,18 @@ interface Trade {
   result?: "win" | "lose";
 }
 
-export default function OtcChart() {
-  const [pair, setPair] = useState("EURUSD");
-  const [duration, setDuration] = useState(60);
+interface OtcChartProps {
+  pair?: string;
+  duration?: number;
+  onPriceUpdate?: (price: number) => void;
+}
+
+export interface OtcChartRef {
+  getCurrentPrice: () => number;
+  placeTrade: (type: "buy" | "sell") => void;
+}
+
+const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", duration = 60, onPriceUpdate }, ref) => {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [lastPrice, setLastPrice] = useState(0);
 
@@ -30,6 +39,25 @@ export default function OtcChart() {
   const wsRef = useRef<WebSocket | null>(null);
   const tradeIdRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    getCurrentPrice: () => lastPrice,
+    placeTrade: (type: "buy" | "sell") => {
+      if (!lastPrice) return;
+      const entryTime = Math.floor(Date.now() / 1000);
+      const exitTime = entryTime + duration;
+
+      const newTrade: Trade = {
+        id: ++tradeIdRef.current,
+        type,
+        entryPrice: lastPrice,
+        entryTime,
+        exitTime,
+      };
+
+      setTrades((old) => [...old, newTrade]);
+    },
+  }));
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -51,33 +79,6 @@ export default function OtcChart() {
       wickDownColor: '#ef5350',
     });
     seriesRef.current = candleSeries;
-
-    const basePrices: Record<string, number> = {
-      "EURUSD": 1.1000,
-      "USDJPY": 149.300,
-      "GBPUSD": 1.2500,
-    };
-    
-    const basePrice = basePrices[pair] || 1.1000;
-    const now = Math.floor(Date.now() / 1000);
-    
-    const initialCandles: CandlestickData[] = [];
-    for (let i = 20; i > 0; i--) {
-      const time = now - (i * 60);
-      const variation = (Math.random() - 0.5) * 0.01;
-      const open = basePrice + variation;
-      const close = basePrice + (Math.random() - 0.5) * 0.01;
-      initialCandles.push({
-        time: time as any,
-        open,
-        high: Math.max(open, close) * 1.002,
-        low: Math.min(open, close) * 0.998,
-        close,
-      });
-    }
-    
-    candleSeries.setData(initialCandles);
-    setLastPrice(initialCandles[initialCandles.length - 1].close);
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
@@ -106,7 +107,9 @@ export default function OtcChart() {
             };
             seriesRef.current?.update(formatted);
             setLastPrice(candle.close);
+            onPriceUpdate?.(candle.close);
 
+            // تحديث نتائج الصفقات
             setTrades((old) =>
               old.map((t) =>
                 !t.result && candle.time >= t.exitTime
@@ -146,22 +149,7 @@ export default function OtcChart() {
     };
   }, [pair]);
 
-  function placeTrade(type: "buy" | "sell") {
-    if (!lastPrice) return;
-    const entryTime = Math.floor(Date.now() / 1000);
-    const exitTime = entryTime + duration;
-
-    const newTrade: Trade = {
-      id: ++tradeIdRef.current,
-      type,
-      entryPrice: lastPrice,
-      entryTime,
-      exitTime,
-    };
-
-    setTrades((old) => [...old, newTrade]);
-  }
-
+  // markers
   useEffect(() => {
     if (!seriesRef.current || !seriesRef.current.setMarkers) return;
     const markers: any[] = [];
@@ -194,6 +182,40 @@ export default function OtcChart() {
     <div className="w-full h-full bg-[#0c1e3e] flex flex-col">
       <div ref={containerRef} className="flex-1 w-full" data-testid="otc-chart" />
 
+      {trades.length > 0 && (
+        <div className="mt-4 bg-[#1a2847] rounded-lg p-4 max-h-40 overflow-y-auto">
+          <h3 className="text-white font-bold mb-3">الصفقات المفتوحة</h3>
+          <div className="space-y-2">
+            {trades.map((t) => (
+              <div 
+                key={t.id} 
+                className="flex items-center justify-between bg-[#0c1e3e] p-3 rounded-lg text-sm"
+                data-testid={`trade-${t.id}`}
+              >
+                <div className="flex items-center gap-4">
+                  <span className={`px-3 py-1 rounded ${t.type === 'buy' ? 'bg-green-600' : 'bg-red-600'} text-white font-semibold`}>
+                    {t.type === 'buy' ? 'شراء' : 'بيع'}
+                  </span>
+                  <span className="text-gray-300">دخول: <span className="text-white font-mono">{t.entryPrice.toFixed(5)}</span></span>
+                  <span className="text-gray-300">
+                    انتهاء: <span className="text-white font-mono">{new Date(t.exitTime * 1000).toLocaleTimeString('ar-SA')}</span>
+                  </span>
+                </div>
+                <span className={`px-3 py-1 rounded font-semibold ${
+                  !t.result ? 'bg-blue-600 text-white' : 
+                  t.result === 'win' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                }`}>
+                  {!t.result ? 'قيد التنفيذ' : t.result === 'win' ? 'ربح' : 'خسارة'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+});
+
+OtcChart.displayName = "OtcChart";
+
+export default OtcChart;

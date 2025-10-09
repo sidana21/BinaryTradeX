@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Link } from 'wouter';
 import { AssetList } from '@/components/trading/asset-list';
 import { TradingPanel } from '@/components/trading/trading-panel';
@@ -10,13 +10,15 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ExternalLink, Menu, X } from 'lucide-react';
 import type { Asset } from '@shared/schema';
-import OtcChart from '@/components/chart/otc-chart';
+import OtcChart, { OtcChartRef } from '@/components/chart/otc-chart';
 
 export default function TradingPage() {
   const { toast } = useToast();
   const { lastMessage } = useWebSocket('/ws');
   const [isAssetsOpen, setIsAssetsOpen] = useState(false);
   const [isTradingOpen, setIsTradingOpen] = useState(false);
+  const [currentPrice, setCurrentPrice] = useState(0);
+  const chartRef = useRef<OtcChartRef>(null);
   
   const {
     state,
@@ -33,27 +35,13 @@ export default function TradingPage() {
     tradesLoading,
   } = useTrading();
 
-  // Handle WebSocket price updates
-  useEffect(() => {
-    if (lastMessage?.type === 'price_update') {
-      const updates = lastMessage.data;
-      
-      // Update selected asset price if it matches
-      if (state.selectedAsset) {
-        const assetUpdate = updates.find((update: any) => update.id === state.selectedAsset?.id);
-        if (assetUpdate) {
-          updateState({
-            selectedAsset: {
-              ...state.selectedAsset,
-              currentPrice: assetUpdate.price,
-              priceChange: assetUpdate.change,
-              priceChangePercent: assetUpdate.changePercent
-            }
-          });
-        }
-      }
-    }
-  }, [lastMessage]);
+  const handlePriceUpdate = (price: number) => {
+    setCurrentPrice(price);
+  };
+
+  const getPairFromAsset = (assetId: string) => {
+    return assetId.replace('_OTC', '');
+  };
 
   const handleAssetSelect = (asset: Asset) => {
     updateState({ selectedAsset: asset });
@@ -152,14 +140,18 @@ export default function TradingPage() {
         {/* Current Price */}
         {state.selectedAsset && (
           <div className="mt-1">
-            <span className="text-2xl font-bold text-white">{state.selectedAsset.currentPrice}</span>
+            <span className="text-2xl font-bold text-white">{currentPrice ? currentPrice.toFixed(5) : state.selectedAsset.currentPrice}</span>
           </div>
         )}
       </div>
 
       {/* Main Chart Area - Full Width */}
       <div className="flex-1 overflow-hidden bg-[#0a0e27]">
-        <OtcChart />
+        <OtcChart 
+          ref={chartRef}
+          pair={state.selectedAsset ? getPairFromAsset(state.selectedAsset.id) : 'USDJPY'}
+          onPriceUpdate={handlePriceUpdate}
+        />
       </div>
 
       {/* Bottom Trading Panel - Exact Pocket Option Style */}

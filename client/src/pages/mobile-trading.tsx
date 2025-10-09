@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/hooks/use-websocket';
 import type { Asset } from '@shared/schema';
 import { TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
-import OtcChart from '@/components/chart/otc-chart';
+import OtcChart, { OtcChartRef } from '@/components/chart/otc-chart';
 
 export default function MobileTradingPage() {
   const { toast } = useToast();
@@ -16,8 +16,9 @@ export default function MobileTradingPage() {
   const [payout, setPayout] = useState(90);
   const [balance, setBalance] = useState(49499.90);
   const [timeRemaining, setTimeRemaining] = useState('23:56:16');
+  const [currentPrice, setCurrentPrice] = useState(0);
   
-  const currentPriceRef = useRef<number>(0);
+  const chartRef = useRef<OtcChartRef>(null);
 
   // Fetch assets
   const { data: assets = [] } = useQuery<Asset[]>({
@@ -29,20 +30,12 @@ export default function MobileTradingPage() {
     if (assets.length > 0 && !selectedAsset) {
       const defaultAsset = assets.find(a => a.id === 'USDJPY_OTC') || assets[0];
       setSelectedAsset(defaultAsset);
-      currentPriceRef.current = parseFloat(defaultAsset.currentPrice);
     }
   }, [assets, selectedAsset]);
 
-  // Update price from WebSocket
-  useEffect(() => {
-    if (lastMessage?.type === 'price_update' && selectedAsset) {
-      const updates = lastMessage.data;
-      const assetUpdate = updates.find((update: any) => update.id === selectedAsset.id);
-      if (assetUpdate) {
-        currentPriceRef.current = parseFloat(assetUpdate.price);
-      }
-    }
-  }, [lastMessage, selectedAsset?.id]);
+  const handlePriceUpdate = (price: number) => {
+    setCurrentPrice(price);
+  };
 
   // Update time remaining
   useEffect(() => {
@@ -56,40 +49,33 @@ export default function MobileTradingPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Trade mutation
-  const tradeMutation = useMutation({
-    mutationFn: async (direction: 'CALL' | 'PUT') => {
-      if (!selectedAsset) throw new Error('No asset selected');
-      const expiryTime = new Date(Date.now() + tradeDuration * 60000);
-      return await apiRequest('POST', '/api/trades', {
-        userId: 'demo_user',
-        assetId: selectedAsset.id,
-        type: direction,
-        amount: tradeAmount.toString(),
-        openPrice: currentPriceRef.current.toString(),
-        expiryTime: expiryTime.toISOString(),
-        isDemo: true,
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: 'تم تنفيذ الصفقة',
-        description: `صفقة بمبلغ $${tradeAmount}`,
-      });
-      setBalance(prev => prev - tradeAmount);
-    },
-    onError: (error: any) => {
+  const handleTrade = (direction: 'CALL' | 'PUT') => {
+    if (!selectedAsset) {
       toast({
         title: 'خطأ',
-        description: error.message || 'فشل تنفيذ الصفقة',
+        description: 'يرجى اختيار أصل',
         variant: 'destructive',
       });
+      return;
     }
-  });
+    
+    const type = direction === 'CALL' ? 'buy' : 'sell';
+    chartRef.current?.placeTrade(type);
+    
+    toast({
+      title: 'تم تنفيذ الصفقة',
+      description: `صفقة ${type === 'buy' ? 'شراء' : 'بيع'} بمبلغ $${tradeAmount}`,
+    });
+    
+    setBalance(prev => prev - tradeAmount);
+  };
 
 
-  const currentPrice = currentPriceRef.current || (selectedAsset ? parseFloat(selectedAsset.currentPrice) : 0);
   const profit = (tradeAmount * payout / 100).toFixed(2);
+  
+  const getPairFromAsset = (assetId: string) => {
+    return assetId.replace('_OTC', '');
+  };
 
   return (
     <div className="h-screen w-screen bg-[#0a0e1a] flex flex-col overflow-hidden">
@@ -127,7 +113,7 @@ export default function MobileTradingPage() {
         </div>
         <div className="flex items-center justify-between">
           <div className="text-white text-2xl font-bold" data-testid="text-asset-price">
-            ${currentPrice.toFixed(3)}
+            ${currentPrice ? currentPrice.toFixed(5) : '0.00000'}
           </div>
           <div className="text-gray-500 text-xs">{timeRemaining}</div>
         </div>
@@ -135,7 +121,12 @@ export default function MobileTradingPage() {
 
       {/* Chart */}
       <div className="flex-1 relative bg-[#0a0e1a]">
-        <OtcChart />
+        <OtcChart 
+          ref={chartRef}
+          pair={selectedAsset ? getPairFromAsset(selectedAsset.id) : 'USDJPY'}
+          duration={tradeDuration * 60}
+          onPriceUpdate={handlePriceUpdate}
+        />
       </div>
 
       {/* Trading Controls */}
@@ -186,8 +177,7 @@ export default function MobileTradingPage() {
         {/* Trade Buttons */}
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={() => tradeMutation.mutate('CALL')}
-            disabled={tradeMutation.isPending}
+            onClick={() => handleTrade('CALL')}
             className="bg-[#4ade80] hover:bg-[#3dca6f] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 transition-all active:scale-95"
             data-testid="button-achat"
           >
@@ -195,8 +185,7 @@ export default function MobileTradingPage() {
             ACHAT
           </button>
           <button
-            onClick={() => tradeMutation.mutate('PUT')}
-            disabled={tradeMutation.isPending}
+            onClick={() => handleTrade('PUT')}
             className="bg-[#fb923c] hover:bg-[#f97316] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all active:scale-95"
             data-testid="button-vente"
           >
