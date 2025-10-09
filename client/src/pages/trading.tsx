@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ExternalLink, Menu, X } from 'lucide-react';
 import type { Asset } from '@shared/schema';
+import OtcChart from '@/components/chart/otc-chart';
 
 export default function TradingPage() {
   const { toast } = useToast();
@@ -157,11 +158,8 @@ export default function TradingPage() {
       </div>
 
       {/* Main Chart Area - Full Width */}
-      <div className="flex-1 overflow-hidden bg-[#0a0e27] flex items-center justify-center">
-        <div className="text-gray-500 text-center">
-          <p className="text-lg">منطقة الشارت</p>
-          <p className="text-sm mt-2">سيتم إضافة الشارت هنا</p>
-        </div>
+      <div className="flex-1 overflow-hidden bg-[#0a0e27]">
+        <OtcChart />
       </div>
 
       {/* Bottom Trading Panel - Exact Pocket Option Style */}

@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/hooks/use-websocket';
 import type { Asset } from '@shared/schema';
 import { TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
+import OtcChart from '@/components/chart/otc-chart';
 
 export default function MobileTradingPage() {
   const { toast } = useToast();
@@ -133,11 +134,8 @@ export default function MobileTradingPage() {
       </div>
 
       {/* Chart */}
-      <div className="flex-1 relative bg-[#0a0e1a] flex items-center justify-center">
-        <div className="text-gray-500 text-center">
-          <p className="text-lg">منطقة الشارت</p>
-          <p className="text-sm mt-2">سيتم إضافة الشارت هنا</p>
-        </div>
+      <div className="flex-1 relative bg-[#0a0e1a]">
+        <OtcChart />
       </div>
 
       {/* Trading Controls */}

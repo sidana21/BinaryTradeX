@@ -1,0 +1,160 @@
+import React, { useEffect, useRef, useState } from "react";
+import { createChart, IChartApi, ISeriesApi, CandlestickData } from "lightweight-charts";
+
+interface Candle {
+  pair: string;
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+interface Trade {
+  id: number;
+  type: "buy" | "sell";
+  entryPrice: number;
+  entryTime: number;
+  exitTime: number;
+  result?: "win" | "lose";
+}
+
+export default function OtcChart() {
+  const [pair, setPair] = useState("EUR/USD OTC");
+  const [duration, setDuration] = useState(60); // مدة الصفقة
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [lastPrice, setLastPrice] = useState(0);
+
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const tradeIdRef = useRef(0);
+
+  useEffect(() => {
+    const chart = createChart(document.getElementById("chart") as HTMLElement, {
+      width: document.getElementById("chart")!.clientWidth,
+      height: 500,
+      layout: { background: { color: "#0c1e3e" }, textColor: "white" },
+      grid: { vertLines: { color: "#334" }, horzLines: { color: "#334" } },
+      timeScale: { timeVisible: true, secondsVisible: false },
+    });
+    chartRef.current = chart;
+
+    const candleSeries = chart.addCandlestickSeries();
+    seriesRef.current = candleSeries;
+
+    const ws = new WebSocket("ws://localhost:4000");
+    wsRef.current = ws;
+
+    ws.onmessage = (ev) => {
+      const candle: Candle = JSON.parse(ev.data);
+      if (candle.pair === pair) {
+        const formatted: CandlestickData = {
+          time: candle.time,
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close,
+        };
+        seriesRef.current?.update(formatted);
+        setLastPrice(candle.close);
+
+        // تحديث نتائج الصفقات
+        setTrades((old) =>
+          old.map((t) =>
+            !t.result && candle.time >= t.exitTime
+              ? {
+                  ...t,
+                  result:
+                    (t.type === "buy" && candle.close > t.entryPrice) ||
+                    (t.type === "sell" && candle.close < t.entryPrice)
+                      ? "win"
+                      : "lose",
+                }
+              : t
+          )
+        );
+      }
+    };
+
+    return () => {
+      ws.close();
+      chart.remove();
+    };
+  }, [pair]);
+
+  function placeTrade(type: "buy" | "sell") {
+    if (!lastPrice) return;
+    const entryTime = Math.floor(Date.now() / 1000);
+    const exitTime = entryTime + duration;
+
+    const newTrade: Trade = {
+      id: ++tradeIdRef.current,
+      type,
+      entryPrice: lastPrice,
+      entryTime,
+      exitTime,
+    };
+
+    setTrades((old) => [...old, newTrade]);
+  }
+
+  // markers
+  useEffect(() => {
+    if (!seriesRef.current) return;
+    const markers: any[] = [];
+    trades.forEach((t) => {
+      markers.push({
+        time: t.entryTime,
+        position: "aboveBar",
+        shape: t.type === "buy" ? "arrowUp" : "arrowDown",
+        color: t.type === "buy" ? "lime" : "red",
+        text: "",
+      });
+      if (t.result) {
+        markers.push({
+          time: t.exitTime,
+          position: "belowBar",
+          shape: "circle",
+          color: t.result === "win" ? "lime" : "red",
+          text: "",
+        });
+      }
+    });
+    seriesRef.current.setMarkers(markers);
+  }, [trades]);
+
+  return (
+    <div>
+      <div style={{ marginBottom: "10px" }}>
+        <select value={pair} onChange={(e) => setPair(e.target.value)}>
+          <option value="EUR/USD OTC">EUR/USD OTC</option>
+          <option value="USD/JPY OTC">USD/JPY OTC</option>
+          <option value="GBP/USD OTC">GBP/USD OTC</option>
+        </select>
+
+        <select value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
+          <option value={30}>30 ثانية</option>
+          <option value={60}>1 دقيقة</option>
+          <option value={120}>2 دقيقة</option>
+        </select>
+
+        <button onClick={() => placeTrade("buy")}>شراء</button>
+        <button onClick={() => placeTrade("sell")}>بيع</button>
+      </div>
+
+      <div id="chart" style={{ width: "100%", height: "500px" }} />
+
+      <div>
+        <h3>الصفقات المفتوحة</h3>
+        {trades.map((t) => (
+          <div key={t.id}>
+            {t.type.toUpperCase()} | دخول: {t.entryPrice} | انتهاء:{" "}
+            {new Date(t.exitTime * 1000).toLocaleTimeString()} |{" "}
+            {t.result ?? "قيد التنفيذ"}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
