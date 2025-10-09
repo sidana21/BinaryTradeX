@@ -163,6 +163,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
 
   // Update current pair ref and clear series data when pair changes
   useEffect(() => {
+    console.log('Chart pair changed to:', pair);
     currentPairRef.current = pair;
     if (seriesRef.current) {
       seriesRef.current.setData([]);

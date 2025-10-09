@@ -44,6 +44,7 @@ export default function TradingPage() {
   };
 
   const handleAssetSelect = (asset: Asset) => {
+    console.log('Asset selected:', asset.name, asset.id);
     updateState({ selectedAsset: asset });
     setIsAssetsOpen(false);
   };
