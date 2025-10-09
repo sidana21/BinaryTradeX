@@ -20,6 +20,10 @@ export default function TradingPage() {
   const [currentPrice, setCurrentPrice] = useState(0);
   const chartRef = useRef<OtcChartRef>(null);
   
+  useEffect(() => {
+    console.log('isAssetsOpen changed:', isAssetsOpen);
+  }, [isAssetsOpen]);
+  
   const {
     state,
     updateState,
@@ -124,7 +128,10 @@ export default function TradingPage() {
       <div className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2">
         <div className="flex items-center justify-between">
           <button 
-            onClick={() => setIsAssetsOpen(true)}
+            onClick={() => {
+              console.log('Asset selector button clicked');
+              setIsAssetsOpen(true);
+            }}
             className="flex items-center gap-2 text-white font-medium"
             data-testid="button-select-asset"
           >
