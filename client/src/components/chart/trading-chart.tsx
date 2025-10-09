@@ -32,6 +32,7 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [markers, setMarkers] = useState<TradeMarker[]>([]);
+  const [timerTick, setTimerTick] = useState(0);
   const lastUpdateTimeRef = useRef<number>(0);
   const priceUpdateRef = useRef<number>(0);
 
@@ -127,6 +128,17 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       priceUpdateRef.current = parseFloat(asset.currentPrice);
     }
   }, [asset?.currentPrice]);
+
+  // Update countdown timer every second
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (openTrades.length > 0) {
+        setTimerTick(prev => prev + 1);
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [openTrades.length]);
 
   // Draw the chart
   useEffect(() => {
@@ -322,34 +334,134 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       const y = scalePrice(marker.price);
       
       if (marker.type === 'entry') {
-        // Entry marker - circle
+        // Entry marker - larger arrow with shadow
         const color = marker.tradeType === 'CALL' ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
+        
+        // Draw shadow for depth
+        ctx.shadowColor = marker.tradeType === 'CALL' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)';
+        ctx.shadowBlur = 10;
         
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.arc(x, y, 8, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.strokeStyle = 'white';
         ctx.lineWidth = 2;
         ctx.stroke();
         
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        
         // Arrow inside circle
         ctx.fillStyle = 'white';
-        ctx.font = 'bold 10px Arial';
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(marker.tradeType === 'CALL' ? '↑' : '↓', x, y);
       } else {
-        // Exit marker - square
+        // Exit marker - square with shadow
         const color = marker.status === 'won' ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
         
+        ctx.shadowColor = marker.status === 'won' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)';
+        ctx.shadowBlur = 10;
+        
         ctx.fillStyle = color;
-        ctx.fillRect(x - 5, y - 5, 10, 10);
+        ctx.fillRect(x - 6, y - 6, 12, 12);
         
         ctx.strokeStyle = 'white';
         ctx.lineWidth = 2;
-        ctx.strokeRect(x - 5, y - 5, 10, 10);
+        ctx.strokeRect(x - 6, y - 6, 12, 12);
+        
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+      }
+    });
+
+    // Draw countdown timer for open trades
+    const activeTrades = openTrades.filter(trade => trade.assetId === asset.id);
+    activeTrades.forEach(trade => {
+      const expiryTime = new Date(trade.expiryTime).getTime();
+      const now = Date.now();
+      const timeRemaining = Math.max(0, expiryTime - now);
+      
+      if (timeRemaining > 0) {
+        const minutes = Math.floor(timeRemaining / 60000);
+        const seconds = Math.floor((timeRemaining % 60000) / 1000);
+        const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Position above the last candle
+        const lastCandleX = leftMargin + (visibleCandles - 1) * candleSpacing + candleSpacing / 2;
+        const timerY = topMargin - 5;
+        
+        // Timer background
+        ctx.font = 'bold 12px Arial';
+        const textWidth = ctx.measureText(timeText).width;
+        const bgWidth = textWidth + 16;
+        const bgHeight = 24;
+        const bgX = lastCandleX - bgWidth / 2;
+        
+        // Background with gradient
+        const timerGradient = ctx.createLinearGradient(bgX, timerY, bgX, timerY + bgHeight);
+        timerGradient.addColorStop(0, 'hsla(220, 30%, 20%, 0.95)');
+        timerGradient.addColorStop(1, 'hsla(220, 30%, 15%, 0.95)');
+        ctx.fillStyle = timerGradient;
+        ctx.beginPath();
+        ctx.roundRect(bgX, timerY, bgWidth, bgHeight, 6);
+        ctx.fill();
+        
+        // Border
+        ctx.strokeStyle = 'hsla(217, 91%, 60%, 0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        // Timer text
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(timeText, lastCandleX, timerY + bgHeight / 2);
+      }
+    });
+
+    // Draw profit/loss for completed trades
+    tradeConnections.forEach((conn) => {
+      if (conn.exit) {
+        const exitX = scaleTime(conn.exit.timestamp);
+        const exitY = scalePrice(conn.exit.price);
+        
+        // Find the trade data
+        const trade = [...openTrades, ...tradeHistory].find(t => t.id === conn.exit?.tradeId);
+        if (trade && trade.status !== 'open') {
+          const openPrice = parseFloat(trade.openPrice);
+          const closePrice = parseFloat(trade.closePrice || '0');
+          const amount = parseFloat(trade.amount);
+          const isWin = trade.status === 'won';
+          const pnl = isWin ? amount * 0.82 : -amount;
+          
+          const pnlText = `${isWin ? '+' : ''}$${pnl.toFixed(2)}`;
+          
+          // Position above exit marker
+          const pnlY = exitY - 25;
+          
+          // Background
+          ctx.font = 'bold 11px Arial';
+          const textWidth = ctx.measureText(pnlText).width;
+          const bgWidth = textWidth + 12;
+          const bgHeight = 20;
+          const bgX = exitX - bgWidth / 2;
+          
+          const color = isWin ? 'hsla(142, 76%, 50%, 0.9)' : 'hsla(0, 84%, 60%, 0.9)';
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.roundRect(bgX, pnlY, bgWidth, bgHeight, 4);
+          ctx.fill();
+          
+          // Text
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pnlText, exitX, pnlY + bgHeight / 2);
+        }
       }
     });
 
@@ -418,7 +530,7 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
     ctx.textBaseline = 'middle';
     ctx.fillText(priceText, badgeX + badgeWidth / 2, currentPriceY);
 
-  }, [candles, asset, markers]);
+  }, [candles, asset, markers, timerTick, openTrades, tradeHistory]);
 
   const timeframes = [
     { key: '5s', label: '5ث' },
