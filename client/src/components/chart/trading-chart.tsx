@@ -328,14 +328,31 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       }
     });
 
-    // Draw markers
+    // Draw markers on candles
     visibleMarkers.forEach(marker => {
-      const x = scaleTime(marker.timestamp);
+      // Find the closest candle to this marker
+      let closestCandleIndex = -1;
+      let minTimeDiff = Infinity;
+      
+      candles.slice(startIndex).forEach((candle, i) => {
+        const timeDiff = Math.abs(candle.timestamp - marker.timestamp);
+        if (timeDiff < minTimeDiff) {
+          minTimeDiff = timeDiff;
+          closestCandleIndex = i;
+        }
+      });
+      
+      if (closestCandleIndex === -1) return;
+      
+      // Get candle position
+      const x = leftMargin + closestCandleIndex * candleSpacing + candleSpacing / 2;
+      const candle = candles[startIndex + closestCandleIndex];
       const y = scalePrice(marker.price);
       
       if (marker.type === 'entry') {
-        // Entry marker - larger arrow with shadow
+        // Entry marker - arrow below the candle
         const color = marker.tradeType === 'CALL' ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
+        const arrowY = marker.tradeType === 'CALL' ? y + 20 : y - 20;
         
         // Draw shadow for depth
         ctx.shadowColor = marker.tradeType === 'CALL' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)';
@@ -343,7 +360,7 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
         
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(x, y, 8, 0, Math.PI * 2);
+        ctx.arc(x, arrowY, 10, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.strokeStyle = 'white';
@@ -355,23 +372,33 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
         
         // Arrow inside circle
         ctx.fillStyle = 'white';
-        ctx.font = 'bold 14px Arial';
+        ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(marker.tradeType === 'CALL' ? '↑' : '↓', x, y);
+        ctx.fillText(marker.tradeType === 'CALL' ? '↑' : '↓', x, arrowY);
+        
+        // Draw line from arrow to price
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath();
+        ctx.moveTo(x, arrowY + (marker.tradeType === 'CALL' ? -10 : 10));
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
       } else {
-        // Exit marker - square with shadow
+        // Exit marker - square on the candle
         const color = marker.status === 'won' ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
         
         ctx.shadowColor = marker.status === 'won' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)';
         ctx.shadowBlur = 10;
         
         ctx.fillStyle = color;
-        ctx.fillRect(x - 6, y - 6, 12, 12);
+        ctx.fillRect(x - 8, y - 8, 16, 16);
         
         ctx.strokeStyle = 'white';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x - 6, y - 6, 12, 12);
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(x - 8, y - 8, 16, 16);
         
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
@@ -390,16 +417,31 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
         const seconds = Math.floor((timeRemaining % 60000) / 1000);
         const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         
-        // Position above the last candle
-        const lastCandleX = leftMargin + (visibleCandles - 1) * candleSpacing + candleSpacing / 2;
-        const timerY = topMargin - 5;
+        // Find the candle where the trade started
+        const tradeStartTime = new Date(trade.createdAt || Date.now()).getTime();
+        let tradeCandleIndex = -1;
+        let minTimeDiff = Infinity;
+        
+        candles.slice(startIndex).forEach((candle, i) => {
+          const timeDiff = Math.abs(candle.timestamp - tradeStartTime);
+          if (timeDiff < minTimeDiff) {
+            minTimeDiff = timeDiff;
+            tradeCandleIndex = i;
+          }
+        });
+        
+        // Position above the trade's candle (or last candle if not found)
+        const timerCandleX = tradeCandleIndex >= 0 
+          ? leftMargin + tradeCandleIndex * candleSpacing + candleSpacing / 2
+          : leftMargin + (visibleCandles - 1) * candleSpacing + candleSpacing / 2;
+        const timerY = topMargin + 5;
         
         // Timer background
         ctx.font = 'bold 12px Arial';
         const textWidth = ctx.measureText(timeText).width;
         const bgWidth = textWidth + 16;
         const bgHeight = 24;
-        const bgX = lastCandleX - bgWidth / 2;
+        const bgX = timerCandleX - bgWidth / 2;
         
         // Background with gradient
         const timerGradient = ctx.createLinearGradient(bgX, timerY, bgX, timerY + bgHeight);
@@ -419,7 +461,7 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(timeText, lastCandleX, timerY + bgHeight / 2);
+        ctx.fillText(timeText, timerCandleX, timerY + bgHeight / 2);
       }
     });
 
