@@ -324,9 +324,6 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     const visibleRange = timeScale.getVisibleRange();
     if (!visibleRange) return;
 
-    // Get price scale for coordinate conversion
-    const priceScale = seriesRef.current.priceScale();
-    
     // Draw professional circles with glow for each trade
     trades.forEach((t) => {
       
@@ -336,9 +333,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         const entryX = timeScale.timeToCoordinate(t.entryTime as any);
         if (entryX === null) return;
         
-        // Get Y coordinate for entry price using priceToCoordinate
-        const entryY = priceScale.priceToCoordinate(t.entryPrice);
-        if (entryY === null) return;
+        // Get Y coordinate for entry price using priceToCoordinate from series
+        const entryY = seriesRef.current?.priceToCoordinate(t.entryPrice);
+        if (entryY === null || entryY === undefined) return;
 
         // Draw entry circle with golden glow effect
         // Outer glow
@@ -382,7 +379,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       // Draw exit circle for completed trades only
       if (t.result && t.exitPrice) {
         const exitX = timeScale.timeToCoordinate(t.exitTime as any);
-        const exitY = priceScale.priceToCoordinate(t.exitPrice);
+        const exitY = seriesRef.current?.priceToCoordinate(t.exitPrice);
         const exitColor = t.result === 'win' ? '#00ff88' : '#ff4444';
 
         if (exitX !== null && exitY !== null) {
