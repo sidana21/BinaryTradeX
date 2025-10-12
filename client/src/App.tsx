@@ -8,6 +8,7 @@ import TradingPage from "@/pages/trading";
 import DepositPage from "@/pages/deposit";
 import TransactionsPage from "@/pages/transactions";
 import ProfilePage from "@/pages/profile";
+import AdminPage from "@/pages/admin";
 
 function Router() {
   return (
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/deposit" component={DepositPage} />
       <Route path="/transactions" component={TransactionsPage} />
       <Route path="/profile" component={ProfilePage} />
+      <Route path="/admin" component={AdminPage} />
     </Switch>
   );
 }
