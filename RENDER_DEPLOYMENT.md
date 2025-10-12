@@ -1,9 +1,20 @@
 # دليل نشر التطبيق على Render
 
 ## المشكلة التي كانت تحدث
-كان الخطأ: `Error: Cannot find module '/opt/render/project/src/dist/index.js'`
 
-السبب: Render كان يبحث في المسار الخاطئ `/opt/render/project/src/dist/index.js` بدلاً من `/opt/render/project/dist/index.js`
+### المشكلة الأولى (تم حلها ✅):
+الخطأ: `Error: Cannot find module '/opt/render/project/src/dist/index.js'`
+
+السبب: Render كان يبحث في المسار الخاطئ
+
+الحل: إنشاء ملف `start.js` خاص
+
+### المشكلة الثانية (تم حلها ✅):
+الخطأ: `sh: 1: vite: not found` عند البناء
+
+السبب: كانت حزم البناء (vite, esbuild, tsx) في `devDependencies` والتي لا يتم تثبيتها بشكل افتراضي على Render
+
+الحل: نقل جميع حزم البناء الضرورية إلى `dependencies` في `package.json`
 
 ---
 
@@ -26,7 +37,7 @@ git push
 
 **Build Command:**
 ```
-npm install --include=dev && npm run build
+npm install && npm run build
 ```
 
 **Start Command:**
