@@ -42,6 +42,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const tradeIdRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const currentPairRef = useRef(pair);
+  const candleBufferRef = useRef<CandlestickData[]>([]);
 
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => lastPrice,
@@ -119,7 +120,18 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
               low: candle.low,
               close: candle.close,
             };
-            seriesRef.current?.update(formatted);
+            
+            // Add to buffer
+            candleBufferRef.current.push(formatted);
+            
+            // Keep only last 100 candles for performance
+            if (candleBufferRef.current.length > 100) {
+              candleBufferRef.current = candleBufferRef.current.slice(-100);
+            }
+            
+            // Update chart with all buffered data
+            seriesRef.current?.setData(candleBufferRef.current);
+            
             setLastPrice(candle.close);
             onPriceUpdate?.(candle.close);
 
@@ -167,6 +179,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   useEffect(() => {
     console.log('Chart pair changed to:', pair);
     currentPairRef.current = pair;
+    candleBufferRef.current = [];
     if (seriesRef.current) {
       seriesRef.current.setData([]);
       setLastPrice(0);
@@ -258,8 +271,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const completedTrades = trades.filter(t => t.result);
 
   return (
-    <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative min-h-0">
-      <div ref={containerRef} className="flex-1 w-full min-h-0" data-testid="otc-chart" />
+    <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative">
+      <div ref={containerRef} className="flex-1 w-full" data-testid="otc-chart" />
 
       {/* Countdown timer overlay for active trades */}
       {activeTrades.map((t) => {
