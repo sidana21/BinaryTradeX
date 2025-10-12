@@ -161,6 +161,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             const allCandles = currentCandleRef.current 
               ? [...candleBufferRef.current, currentCandleRef.current]
               : candleBufferRef.current;
+            console.log('Updating chart with', allCandles.length, 'candles, current candle:', currentCandleRef.current);
             seriesRef.current?.setData(allCandles);
             
             setLastPrice(price);
