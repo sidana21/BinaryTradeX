@@ -8,7 +8,7 @@ import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ExternalLink, Menu, X } from 'lucide-react';
+import { ExternalLink, Menu, X, Wallet, UserCircle } from 'lucide-react';
 import type { Asset } from '@shared/schema';
 import OtcChart, { OtcChartRef } from '@/components/chart/otc-chart';
 
@@ -128,7 +128,7 @@ export default function TradingPage() {
           {/* Right - Wallet */}
           <Link href="/deposit">
             <button className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center" data-testid="button-wallet">
-              <i className="fas fa-wallet text-emerald-400 text-xl"></i>
+              <Wallet className="text-emerald-400 w-6 h-6" />
             </button>
           </Link>
         </div>
@@ -364,7 +364,7 @@ export default function TradingPage() {
             className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
             data-testid="nav-profile"
           >
-            <i className="fas fa-user text-base"></i>
+            <UserCircle className="w-4 h-4" />
             <span className="text-[9px]">Profile</span>
           </button>
         </Link>
