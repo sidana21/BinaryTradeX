@@ -594,11 +594,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   const currentCandles: Record<string, CurrentCandle> = {};
   
+  // Price momentum tracking for realistic movement
+  const priceMomentum: Record<string, number> = {};
+  const priceHistory: Record<string, number[]> = {};
+  
   // Initialize OTC markets from assets
   storage.getAllAssets().then(assets => {
     assets.forEach(asset => {
       const pair = asset.id.replace('_OTC', '');
       otcMarkets[pair] = parseFloat(asset.currentPrice);
+      priceMomentum[pair] = 0;
+      priceHistory[pair] = [parseFloat(asset.currentPrice)];
       
       // Initialize first candle for each pair
       const currentTime = Math.floor(Date.now() / 1000);
@@ -618,16 +624,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const currentTime = Math.floor(Date.now() / 1000);
     const last = otcMarkets[pair] || currentPrice;
     
+    // Initialize if not exists
+    if (!priceMomentum[pair]) priceMomentum[pair] = 0;
+    if (!priceHistory[pair]) priceHistory[pair] = [last];
+    
     // Determine volatility based on asset type
-    let volatility = 0.00008;
+    let volatility = 0.00005; // Reduced for smoother movement
     if (pair.includes('BTC') || pair.includes('ETH') || pair.includes('LTC') || pair.includes('XRP') || pair.includes('BNB') || pair.includes('ADA')) {
-      volatility = 0.001;
+      volatility = 0.0008;
     } else if (pair.includes('JPY')) {
-      volatility = 0.004;
+      volatility = 0.003;
     } else if (pair.includes('GOLD') || pair.includes('SILVER') || pair.includes('OIL')) {
-      volatility = 0.0015;
-    } else if (pair.includes('SPX') || pair.includes('NDX') || pair.includes('DJI') || pair.includes('DAX') || pair.includes('CAC') || pair.includes('FTSE') || pair.includes('NIKKEI')) {
       volatility = 0.001;
+    } else if (pair.includes('SPX') || pair.includes('NDX') || pair.includes('DJI') || pair.includes('DAX') || pair.includes('CAC') || pair.includes('FTSE') || pair.includes('NIKKEI')) {
+      volatility = 0.0008;
     }
     
     // Check for active trades on this pair to manipulate candles naturally
@@ -658,10 +668,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
     
-    // Calculate new price with natural movement
-    const change = (Math.random() - 0.5) * 2 * volatility * last + (candleManipulation * last);
-    const newPrice = last + change;
+    // Realistic price movement with momentum and mean reversion
+    const history = priceHistory[pair];
+    const recentAvg = history.slice(-10).reduce((a, b) => a + b, 0) / Math.min(10, history.length);
+    
+    // Mean reversion force (price tends to return to average)
+    const meanReversionForce = (recentAvg - last) * 0.02;
+    
+    // Random walk component (reduced for smoother movement)
+    const randomWalk = (Math.random() - 0.5) * volatility * last;
+    
+    // Momentum persistence (70% of previous momentum + new random)
+    const momentumDecay = 0.7;
+    const newMomentum = priceMomentum[pair] * momentumDecay + randomWalk * 0.3;
+    priceMomentum[pair] = newMomentum;
+    
+    // Combine all forces for natural movement
+    const totalChange = newMomentum + meanReversionForce + (candleManipulation * last);
+    const newPrice = last + totalChange;
+    
+    // Update price and history
     otcMarkets[pair] = newPrice;
+    priceHistory[pair].push(newPrice);
+    if (priceHistory[pair].length > 50) {
+      priceHistory[pair].shift(); // Keep only recent history
+    }
 
     // Return price tick data (client will build candles)
     return {

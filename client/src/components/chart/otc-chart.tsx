@@ -96,10 +96,12 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     chartRef.current = chart;
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#26a69a',
+      upColor: '#00ff88',
       downColor: '#ef5350',
-      borderVisible: false,
-      wickUpColor: '#26a69a',
+      borderVisible: true,
+      borderUpColor: '#00ff88',
+      borderDownColor: '#ef5350',
+      wickUpColor: '#00ff88',
       wickDownColor: '#ef5350',
     });
     seriesRef.current = candleSeries;
