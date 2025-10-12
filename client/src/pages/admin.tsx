@@ -24,6 +24,9 @@ export default function AdminPage() {
   const [demoBalance, setDemoBalance] = useState('');
   const [realBalance, setRealBalance] = useState('');
   const [winRate, setWinRate] = useState('');
+  const [usdtTrc20Address, setUsdtTrc20Address] = useState('');
+  const [usdtErc20Address, setUsdtErc20Address] = useState('');
+  const [usdtBep20Address, setUsdtBep20Address] = useState('');
 
   const { data: stats } = useQuery<AdminStats>({
     queryKey: ['/api/admin/stats'],
@@ -90,11 +93,15 @@ export default function AdminPage() {
   });
 
   const updateSettingsMutation = useMutation({
-    mutationFn: async (data: { winRate: string }) => {
+    mutationFn: async (data: { winRate?: string; usdtTrc20Address?: string; usdtErc20Address?: string; usdtBep20Address?: string }) => {
       return apiRequest('PATCH', '/api/admin/settings', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/settings'] });
+      setWinRate('');
+      setUsdtTrc20Address('');
+      setUsdtErc20Address('');
+      setUsdtBep20Address('');
       toast({
         title: 'تم التحديث',
         description: 'تم تحديث الإعدادات بنجاح',
@@ -116,8 +123,14 @@ export default function AdminPage() {
   };
 
   const handleUpdateSettings = () => {
-    if (winRate) {
-      updateSettingsMutation.mutate({ winRate });
+    const updates: any = {};
+    if (winRate) updates.winRate = winRate;
+    if (usdtTrc20Address) updates.usdtTrc20Address = usdtTrc20Address;
+    if (usdtErc20Address) updates.usdtErc20Address = usdtErc20Address;
+    if (usdtBep20Address) updates.usdtBep20Address = usdtBep20Address;
+    
+    if (Object.keys(updates).length > 0) {
+      updateSettingsMutation.mutate(updates);
     }
   };
 
@@ -443,10 +456,11 @@ export default function AdminPage() {
                     <span className="text-gray-400">%</span>
                     <Button
                       onClick={handleUpdateSettings}
-                      disabled={updateSettingsMutation.isPending || !winRate}
+                      disabled={updateSettingsMutation.isPending || (!winRate && !usdtTrc20Address && !usdtErc20Address && !usdtBep20Address)}
                       data-testid="button-save-settings"
+                      className="bg-blue-600 hover:bg-blue-700"
                     >
-                      {updateSettingsMutation.isPending ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                      {updateSettingsMutation.isPending ? 'جاري الحفظ...' : 'حفظ جميع التغييرات'}
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500">
@@ -468,28 +482,52 @@ export default function AdminPage() {
 
               {settings && (
                 <div className="bg-[#1a1f3a] p-6 rounded-lg space-y-4">
-                  <h3 className="text-lg font-semibold text-white mb-4">عناوين المحافظ</h3>
+                  <h3 className="text-lg font-semibold text-white mb-4">عناوين المحافظ للإيداع</h3>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
-                      <label className="text-sm text-gray-400">USDT TRC20</label>
-                      <p className="text-white font-mono text-sm mt-1 bg-[#0f1535] p-2 rounded">
-                        {settings.usdtTrc20Address || 'غير محدد'}
-                      </p>
+                      <label className="text-sm text-gray-400 mb-2 block">USDT TRC20</label>
+                      <Input
+                        type="text"
+                        value={usdtTrc20Address}
+                        onChange={(e) => setUsdtTrc20Address(e.target.value)}
+                        placeholder={settings.usdtTrc20Address || 'أدخل عنوان المحفظة'}
+                        className="bg-[#0f1535] border-[#252b4a] text-white font-mono text-sm"
+                        data-testid="input-trc20-address"
+                      />
+                      {settings.usdtTrc20Address && !usdtTrc20Address && (
+                        <p className="text-xs text-gray-500 mt-1">العنوان الحالي: {settings.usdtTrc20Address}</p>
+                      )}
                     </div>
                     
                     <div>
-                      <label className="text-sm text-gray-400">USDT ERC20</label>
-                      <p className="text-white font-mono text-sm mt-1 bg-[#0f1535] p-2 rounded">
-                        {settings.usdtErc20Address || 'غير محدد'}
-                      </p>
+                      <label className="text-sm text-gray-400 mb-2 block">USDT ERC20</label>
+                      <Input
+                        type="text"
+                        value={usdtErc20Address}
+                        onChange={(e) => setUsdtErc20Address(e.target.value)}
+                        placeholder={settings.usdtErc20Address || 'أدخل عنوان المحفظة'}
+                        className="bg-[#0f1535] border-[#252b4a] text-white font-mono text-sm"
+                        data-testid="input-erc20-address"
+                      />
+                      {settings.usdtErc20Address && !usdtErc20Address && (
+                        <p className="text-xs text-gray-500 mt-1">العنوان الحالي: {settings.usdtErc20Address}</p>
+                      )}
                     </div>
                     
                     <div>
-                      <label className="text-sm text-gray-400">USDT BEP20</label>
-                      <p className="text-white font-mono text-sm mt-1 bg-[#0f1535] p-2 rounded">
-                        {settings.usdtBep20Address || 'غير محدد'}
-                      </p>
+                      <label className="text-sm text-gray-400 mb-2 block">USDT BEP20</label>
+                      <Input
+                        type="text"
+                        value={usdtBep20Address}
+                        onChange={(e) => setUsdtBep20Address(e.target.value)}
+                        placeholder={settings.usdtBep20Address || 'أدخل عنوان المحفظة'}
+                        className="bg-[#0f1535] border-[#252b4a] text-white font-mono text-sm"
+                        data-testid="input-bep20-address"
+                      />
+                      {settings.usdtBep20Address && !usdtBep20Address && (
+                        <p className="text-xs text-gray-500 mt-1">العنوان الحالي: {settings.usdtBep20Address}</p>
+                      )}
                     </div>
                   </div>
 
