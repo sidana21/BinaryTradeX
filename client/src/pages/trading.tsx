@@ -3,8 +3,10 @@ import { Link } from 'wouter';
 import { AssetList } from '@/components/trading/asset-list';
 import { TradingPanel } from '@/components/trading/trading-panel';
 import { TradesPanel } from '@/components/trading/trades-panel';
+import { TradeResultPopup } from '@/components/trading/trade-result-popup';
 import { useTrading } from '@/hooks/use-trading';
 import { useWebSocket } from '@/hooks/use-websocket';
+import { useTradeResult } from '@/hooks/use-trade-result';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -38,6 +40,9 @@ export default function TradingPage() {
     assetsLoading,
     tradesLoading,
   } = useTrading();
+
+  const allTrades = [...openTrades, ...tradeHistory];
+  const { tradeResult, clearResult } = useTradeResult(allTrades);
 
   const handlePriceUpdate = (price: number) => {
     setCurrentPrice(price);
@@ -394,6 +399,13 @@ export default function TradingPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Trade Result Popup */}
+      <TradeResultPopup
+        result={tradeResult.result}
+        amount={tradeResult.amount}
+        onClose={clearResult}
+      />
     </div>
   );
 }

@@ -278,18 +278,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           if (entryLine) priceLineRefsRef.current.push(entryLine);
         }
 
-        // Exit price line for completed trades
-        if (t.result && t.exitPrice) {
-          const exitLine = seriesRef.current?.createPriceLine({
-            price: t.exitPrice,
-            color: t.result === "win" ? "#00ff88" : "#ff4444",
-            lineWidth: 3,
-            lineStyle: 0, // Solid line for exit
-            axisLabelVisible: true,
-            title: t.result === "win" ? "✓" : "✗",
-          });
-          if (exitLine) priceLineRefsRef.current.push(exitLine);
-        }
+        // Exit price line removed - replaced with popup notification
       } catch (e) {
         console.log("Price line error:", e);
       }
@@ -376,41 +365,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         ctx.fillText(t.type === 'buy' ? '↑' : '↓', entryX, entryY);
       }
 
-      // Draw exit circle for completed trades only
-      if (t.result && t.exitPrice) {
-        const exitX = timeScale.timeToCoordinate(t.exitTime as any);
-        const exitY = seriesRef.current?.priceToCoordinate(t.exitPrice);
-        const exitColor = t.result === 'win' ? '#00ff88' : '#ff4444';
-
-        if (exitX !== null && exitY !== null) {
-          // Outer glow for exit
-          ctx.save();
-          ctx.shadowColor = exitColor;
-          ctx.shadowBlur = 20;
-          ctx.globalAlpha = 0.6;
-          ctx.beginPath();
-          ctx.arc(exitX, exitY, 12, 0, Math.PI * 2);
-          ctx.fillStyle = exitColor;
-          ctx.fill();
-          ctx.restore();
-          
-          // Inner circle for exit
-          ctx.beginPath();
-          ctx.arc(exitX, exitY, 6, 0, Math.PI * 2);
-          ctx.fillStyle = exitColor;
-          ctx.fill();
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          
-          // Draw result symbol
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 10px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(t.result === 'win' ? '✓' : '✗', exitX, exitY);
-        }
-      }
+      // Exit circle removed - replaced with popup notification
     });
   }, [trades, lastPrice, currentTime]);
 
