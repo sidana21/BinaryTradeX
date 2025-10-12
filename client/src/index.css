@@ -217,14 +217,44 @@
   }
 }
 
+/* Golden Entry Line Glow */
+@keyframes golden-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.8)) 
+            drop-shadow(0 0 12px rgba(255, 215, 0, 0.5))
+            drop-shadow(0 0 20px rgba(255, 215, 0, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 1)) 
+            drop-shadow(0 0 20px rgba(255, 215, 0, 0.7))
+            drop-shadow(0 0 30px rgba(255, 215, 0, 0.4));
+  }
+}
+
 @keyframes sparkle {
   0%, 100% { opacity: 0; transform: scale(0); }
   50% { opacity: 1; transform: scale(1); }
 }
 
+@keyframes pulse-glow {
+  0%, 100% { 
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
 /* Apply glow to chart container for green candles */
 .chart-with-glow {
   animation: candle-glow 2s ease-in-out infinite;
+}
+
+/* Golden entry point styling */
+.entry-point-golden {
+  animation: golden-pulse 2s ease-in-out infinite;
 }
 
 /* Responsive adjustments */
