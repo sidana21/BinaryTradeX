@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
-import { createChart, IChartApi, CandlestickData, CandlestickSeries } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, CandlestickSeries, createSeriesMarkers } from "lightweight-charts";
 
 interface Candle {
   pair: string;
@@ -43,6 +43,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const containerRef = useRef<HTMLDivElement>(null);
   const currentPairRef = useRef(pair);
   const candleBufferRef = useRef<CandlestickData[]>([]);
+  const markersRef = useRef<any>(null);
 
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => lastPrice,
@@ -92,6 +93,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       wickDownColor: '#ef5350',
     });
     seriesRef.current = candleSeries;
+    
+    // Initialize markers with empty array
+    markersRef.current = createSeriesMarkers(candleSeries, []);
 
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
@@ -201,8 +205,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     });
     priceLineRefsRef.current = [];
     
-    // Set markers for arrows on candles
-    if (seriesRef.current.setMarkers) {
+    // Set markers for arrows on candles using new v5 API
+    if (markersRef.current) {
       const markers: any[] = [];
       trades.forEach((t) => {
         // Entry marker - arrow at entry candle
@@ -229,7 +233,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       });
       
       try {
-        seriesRef.current.setMarkers(markers);
+        markersRef.current.setMarkers(markers);
       } catch (e) {
         console.log("Markers:", e);
       }
