@@ -243,14 +243,14 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       const bodyHeight = Math.max(Math.abs(closeY - openY), 2);
       const bodyY = Math.min(openY, closeY);
       
-      // Enhanced professional color scheme
-      const greenColor = 'hsl(142, 76%, 55%)';
-      const greenDark = 'hsl(142, 76%, 40%)';
-      const redColor = 'hsl(0, 84%, 65%)';
-      const redDark = 'hsl(0, 84%, 50%)';
+      // Dark green and red color scheme
+      const greenColor = 'hsl(142, 70%, 35%)';
+      const greenDark = 'hsl(142, 70%, 25%)';
+      const redColor = 'hsl(0, 75%, 50%)';
+      const redDark = 'hsl(0, 75%, 40%)';
       
       // Draw wick with professional style
-      ctx.strokeStyle = isGreen ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
+      ctx.strokeStyle = isGreen ? 'hsl(142, 70%, 30%)' : 'hsl(0, 75%, 45%)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(x, highY);
@@ -258,20 +258,20 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       ctx.stroke();
       
       // Enhanced glow effect for professional depth
-      ctx.shadowColor = isGreen ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)';
+      ctx.shadowColor = isGreen ? 'rgba(22, 163, 74, 0.35)' : 'rgba(220, 38, 38, 0.35)';
       ctx.shadowBlur = 6;
       
       // Draw body with professional gradient
       const gradient = ctx.createLinearGradient(x - candleWidth/2, bodyY, x + candleWidth/2, bodyY + bodyHeight);
       if (isGreen) {
         gradient.addColorStop(0, greenColor);
-        gradient.addColorStop(0.3, 'hsl(142, 76%, 52%)');
-        gradient.addColorStop(0.7, 'hsl(142, 76%, 48%)');
+        gradient.addColorStop(0.3, 'hsl(142, 70%, 32%)');
+        gradient.addColorStop(0.7, 'hsl(142, 70%, 28%)');
         gradient.addColorStop(1, greenDark);
       } else {
         gradient.addColorStop(0, redColor);
-        gradient.addColorStop(0.3, 'hsl(0, 84%, 62%)');
-        gradient.addColorStop(0.7, 'hsl(0, 84%, 58%)');
+        gradient.addColorStop(0.3, 'hsl(0, 75%, 48%)');
+        gradient.addColorStop(0.7, 'hsl(0, 75%, 44%)');
         gradient.addColorStop(1, redDark);
       }
       ctx.fillStyle = gradient;
