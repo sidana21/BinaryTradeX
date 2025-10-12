@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertTradeSchema } from "@shared/schema";
+import { insertTradeSchema, insertDepositSchema } from "@shared/schema";
 import { z } from "zod";
 import axios from "axios";
 
@@ -348,6 +348,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(user);
     } catch (error) {
       res.status(500).json({ message: "Failed to create demo user" });
+    }
+  });
+
+  // Deposit endpoints
+  app.post("/api/deposits", async (req, res) => {
+    try {
+      const validated = insertDepositSchema.parse(req.body);
+      
+      const user = await storage.getUser(validated.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const deposit = await storage.createDeposit(validated);
+      res.json(deposit);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid deposit data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create deposit" });
+    }
+  });
+
+  app.get("/api/deposits/user/:userId", async (req, res) => {
+    try {
+      const deposits = await storage.getDepositsByUser(req.params.userId);
+      res.json(deposits);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch deposits" });
+    }
+  });
+
+  const depositStatusSchema = z.object({
+    status: z.enum(['pending', 'completed', 'failed', 'cancelled'])
+  });
+
+  app.patch("/api/deposits/:id/status", async (req, res) => {
+    try {
+      const { status } = depositStatusSchema.parse(req.body);
+      const deposit = await storage.getDeposit(req.params.id);
+      
+      if (!deposit) {
+        return res.status(404).json({ message: "Deposit not found" });
+      }
+
+      const user = await storage.getUser(deposit.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const completedAt = status === "completed" ? new Date() : undefined;
+      const updatedDeposit = await storage.updateDepositStatus(req.params.id, status, completedAt);
+
+      if (status === "completed") {
+        const newRealBalance = (parseFloat(user.realBalance || "0") + parseFloat(deposit.amount)).toFixed(2);
+        await storage.updateUserBalance(deposit.userId, user.demoBalance || "10000.00", newRealBalance);
+      }
+
+      res.json(updatedDeposit);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid status", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update deposit status" });
     }
   });
 

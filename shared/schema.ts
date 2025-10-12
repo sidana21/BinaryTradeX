@@ -51,6 +51,18 @@ export const priceData = pgTable("price_data", {
   volume: decimal("volume", { precision: 15, scale: 2 }).default("0.00"),
 });
 
+export const deposits = pgTable("deposits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  method: text("method").notNull(), // 'usdt_trc20', 'usdt_erc20', 'usdt_bep20'
+  status: text("status").default("pending"), // 'pending', 'completed', 'failed', 'cancelled'
+  transactionHash: text("transaction_hash"),
+  walletAddress: text("wallet_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -70,6 +82,12 @@ export const insertPriceDataSchema = createInsertSchema(priceData).omit({
   id: true,
 });
 
+export const insertDepositSchema = createInsertSchema(deposits).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertAsset = z.infer<typeof insertAssetSchema>;
@@ -78,3 +96,5 @@ export type InsertTrade = z.infer<typeof insertTradeSchema>;
 export type Trade = typeof trades.$inferSelect;
 export type InsertPriceData = z.infer<typeof insertPriceDataSchema>;
 export type PriceData = typeof priceData.$inferSelect;
+export type InsertDeposit = z.infer<typeof insertDepositSchema>;
+export type Deposit = typeof deposits.$inferSelect;

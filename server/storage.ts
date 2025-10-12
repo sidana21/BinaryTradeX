@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Asset, type InsertAsset, type Trade, type InsertTrade, type PriceData, type InsertPriceData } from "@shared/schema";
+import { type User, type InsertUser, type Asset, type InsertAsset, type Trade, type InsertTrade, type PriceData, type InsertPriceData, type Deposit, type InsertDeposit } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -24,6 +24,12 @@ export interface IStorage {
   // Price Data
   getPriceData(assetId: string, limit?: number): Promise<PriceData[]>;
   addPriceData(priceData: InsertPriceData): Promise<PriceData>;
+
+  // Deposits
+  getDeposit(id: string): Promise<Deposit | undefined>;
+  getDepositsByUser(userId: string): Promise<Deposit[]>;
+  createDeposit(deposit: InsertDeposit): Promise<Deposit>;
+  updateDepositStatus(id: string, status: string, completedAt?: Date): Promise<Deposit | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -31,12 +37,14 @@ export class MemStorage implements IStorage {
   private assets: Map<string, Asset>;
   private trades: Map<string, Trade>;
   private priceData: Map<string, PriceData>;
+  private deposits: Map<string, Deposit>;
 
   constructor() {
     this.users = new Map();
     this.assets = new Map();
     this.trades = new Map();
     this.priceData = new Map();
+    this.deposits = new Map();
     this.initializeAssets();
   }
 
@@ -213,6 +221,50 @@ export class MemStorage implements IStorage {
     };
     this.priceData.set(id, newPriceData);
     return newPriceData;
+  }
+
+  // Deposits
+  async getDeposit(id: string): Promise<Deposit | undefined> {
+    return this.deposits.get(id);
+  }
+
+  async getDepositsByUser(userId: string): Promise<Deposit[]> {
+    return Array.from(this.deposits.values())
+      .filter(deposit => deposit.userId === userId)
+      .sort((a, b) => {
+        const aTime = a.createdAt?.getTime() ?? 0;
+        const bTime = b.createdAt?.getTime() ?? 0;
+        return bTime - aTime;
+      });
+  }
+
+  async createDeposit(insertDeposit: InsertDeposit): Promise<Deposit> {
+    const id = randomUUID();
+    const deposit: Deposit = {
+      id,
+      userId: insertDeposit.userId,
+      amount: insertDeposit.amount,
+      method: insertDeposit.method,
+      status: insertDeposit.status ?? "pending",
+      transactionHash: insertDeposit.transactionHash ?? null,
+      walletAddress: insertDeposit.walletAddress ?? null,
+      createdAt: new Date(),
+      completedAt: null
+    };
+    this.deposits.set(id, deposit);
+    return deposit;
+  }
+
+  async updateDepositStatus(id: string, status: string, completedAt?: Date): Promise<Deposit | undefined> {
+    const deposit = this.deposits.get(id);
+    if (deposit) {
+      deposit.status = status;
+      if (completedAt) {
+        deposit.completedAt = completedAt;
+      }
+      this.deposits.set(id, deposit);
+    }
+    return deposit;
   }
 }
 

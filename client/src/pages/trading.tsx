@@ -128,9 +128,11 @@ export default function TradingPage() {
           </div>
 
           {/* Right - Wallet */}
-          <button className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-            <i className="fas fa-wallet text-emerald-400 text-xl"></i>
-          </button>
+          <Link href="/deposit">
+            <button className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center" data-testid="button-wallet">
+              <i className="fas fa-wallet text-emerald-400 text-xl"></i>
+            </button>
+          </Link>
         </div>
       </header>
 
@@ -332,13 +334,15 @@ export default function TradingPage() {
 
       {/* Bottom Navigation Bar - Exact Pocket Option Labels */}
       <nav className="bg-[#0f1535] border-t border-[#1a1f3a] px-2 py-2 flex items-center justify-around flex-shrink-0">
-        <button 
-          className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
-          data-testid="nav-transactions"
-        >
-          <i className="fas fa-history text-base"></i>
-          <span className="text-[9px]">Transacti...</span>
-        </button>
+        <Link href="/transactions">
+          <button 
+            className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
+            data-testid="nav-transactions"
+          >
+            <i className="fas fa-history text-base"></i>
+            <span className="text-[9px]">Transacti...</span>
+          </button>
+        </Link>
         
         <button 
           className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
@@ -357,13 +361,15 @@ export default function TradingPage() {
           <span className="text-[9px]">Trading s.</span>
         </button>
         
-        <button 
-          className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
-          data-testid="nav-community"
-        >
-          <i className="fas fa-users text-base"></i>
-          <span className="text-[9px]">Transacti...</span>
-        </button>
+        <Link href="/profile">
+          <button 
+            className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
+            data-testid="nav-profile"
+          >
+            <i className="fas fa-user text-base"></i>
+            <span className="text-[9px]">Profile</span>
+          </button>
+        </Link>
         
         <button 
           className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"

@@ -5,12 +5,18 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch } from "wouter";
 import LandingPage from "@/pages/landing";
 import TradingPage from "@/pages/trading";
+import DepositPage from "@/pages/deposit";
+import TransactionsPage from "@/pages/transactions";
+import ProfilePage from "@/pages/profile";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/trading" component={TradingPage} />
+      <Route path="/deposit" component={DepositPage} />
+      <Route path="/transactions" component={TransactionsPage} />
+      <Route path="/profile" component={ProfilePage} />
     </Switch>
   );
 }
