@@ -19,7 +19,7 @@ export default function TradingPage() {
   const { lastMessage } = useWebSocket('/ws');
   const [isAssetsOpen, setIsAssetsOpen] = useState(false);
   const [isTradingOpen, setIsTradingOpen] = useState(false);
-  const [currentPrice, setCurrentPrice] = useState(0);
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const chartRef = useRef<OtcChartRef>(null);
   
   useEffect(() => {
@@ -51,6 +51,16 @@ export default function TradingPage() {
   const getPairFromAsset = (assetId: string) => {
     return assetId.replace('_OTC', '');
   };
+
+  // Update current price from WebSocket messages
+  useEffect(() => {
+    if (lastMessage && lastMessage.type === 'otc_price_tick') {
+      const tick = lastMessage.data;
+      if (state.selectedAsset && tick.pair === getPairFromAsset(state.selectedAsset.id)) {
+        setCurrentPrice(tick.price);
+      }
+    }
+  }, [lastMessage, state.selectedAsset]);
 
   const handleAssetSelect = (asset: Asset) => {
     console.log('Asset selected:', asset.name, asset.id);
@@ -164,7 +174,9 @@ export default function TradingPage() {
         {/* Current Price */}
         {state.selectedAsset && (
           <div>
-            <span className="text-2xl font-bold text-white">{currentPrice ? currentPrice.toFixed(5) : state.selectedAsset.currentPrice}</span>
+            <span className="text-2xl font-bold text-white">
+              {(currentPrice !== null ? currentPrice : parseFloat(state.selectedAsset.currentPrice)).toFixed(5)}
+            </span>
           </div>
         )}
       </div>

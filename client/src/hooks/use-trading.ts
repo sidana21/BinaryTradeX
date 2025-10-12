@@ -114,10 +114,10 @@ export function useTrading() {
       return response.json();
     },
     onSuccess: (trade: Trade) => {
-      // Update balance if trade won
+      // Update balance if trade won - use trade.isDemo instead of state.isDemoAccount
       if (trade.status === 'won' && trade.payout) {
         const payout = parseFloat(trade.payout);
-        if (state.isDemoAccount) {
+        if (trade.isDemo) {
           const newBalance = state.demoBalance + payout;
           setState(prev => ({
             ...prev,
