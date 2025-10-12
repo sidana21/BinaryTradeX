@@ -84,7 +84,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     const chart = createChart(containerRef.current, {
       width: containerWidth,
       height: containerHeight,
-      layout: { background: { color: "#0c1e3e" }, textColor: "white" },
+      layout: { background: { color: "#0c1e3e" }, textColor: "white", attributionLogo: false },
       grid: { vertLines: { color: "#334" }, horzLines: { color: "#334" } },
       timeScale: { timeVisible: true, secondsVisible: false },
     });
