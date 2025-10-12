@@ -76,9 +76,14 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const containerWidth = containerRef.current.clientWidth || 800;
+    const containerHeight = containerRef.current.clientHeight || 400;
+    
+    console.log('Creating chart with dimensions:', containerWidth, 'x', containerHeight);
+    
     const chart = createChart(containerRef.current, {
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
+      width: containerWidth,
+      height: containerHeight,
       layout: { background: { color: "#0c1e3e" }, textColor: "white" },
       grid: { vertLines: { color: "#334" }, horzLines: { color: "#334" } },
       timeScale: { timeVisible: true, secondsVisible: false },
@@ -191,6 +196,11 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     }
   }, [pair]);
 
+  // Log buffer size for debugging
+  useEffect(() => {
+    console.log('Chart buffer size:', candleBufferRef.current.length, 'Series exists:', !!seriesRef.current);
+  }, [candleBufferRef.current.length]);
+
   // Price lines and markers for entry/exit visualization (Quotex/IQ Option style)
   const priceLineRefsRef = useRef<any[]>([]);
   
@@ -276,7 +286,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
 
   return (
     <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative">
-      <div ref={containerRef} className="flex-1 w-full" data-testid="otc-chart" />
+      <div ref={containerRef} className="flex-1 w-full min-h-[300px]" data-testid="otc-chart" />
 
       {/* Countdown timer overlay for active trades */}
       {activeTrades.map((t) => {

@@ -87,9 +87,9 @@ export default function TradingPage() {
   const currentBalance = state.isDemoAccount ? state.demoBalance : state.realBalance;
 
   return (
-    <div className="min-h-screen bg-[#0a0e27] text-foreground flex flex-col">
+    <div className="h-screen bg-[#0a0e27] text-foreground flex flex-col overflow-hidden">
       {/* Pocket Option Style Header - Mobile First */}
-      <header className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2 sticky top-0 z-50">
+      <header className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2 z-50 flex-shrink-0">
         <div className="flex items-center justify-between">
           {/* Left - User Avatar & Gift */}
           <div className="flex items-center gap-3">
@@ -135,7 +135,7 @@ export default function TradingPage() {
       </header>
 
       {/* Asset Selector Bar */}
-      <div className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2 relative">
+      <div className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2 relative flex-shrink-0">
         <button 
           type="button"
           onClick={() => {
@@ -174,7 +174,7 @@ export default function TradingPage() {
       </div>
 
       {/* Bottom Trading Panel - Exact Pocket Option Style */}
-      <div className="bg-[#0f1535] border-t border-[#1a1f3a] px-3 py-3 space-y-2.5">
+      <div className="bg-[#0f1535] border-t border-[#1a1f3a] px-3 py-3 space-y-2.5 flex-shrink-0">
         {/* Time & Amount Row */}
         <div className="grid grid-cols-2 gap-3">
           {/* Time - Temps */}
@@ -331,7 +331,7 @@ export default function TradingPage() {
       </div>
 
       {/* Bottom Navigation Bar - Exact Pocket Option Labels */}
-      <nav className="bg-[#0f1535] border-t border-[#1a1f3a] px-2 py-2 flex items-center justify-around">
+      <nav className="bg-[#0f1535] border-t border-[#1a1f3a] px-2 py-2 flex items-center justify-around flex-shrink-0">
         <button 
           className="flex flex-col items-center gap-1 py-1 px-2 text-gray-400 hover:text-blue-400 transition-colors"
           data-testid="nav-transactions"
