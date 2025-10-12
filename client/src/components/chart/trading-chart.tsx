@@ -315,7 +315,7 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       }
     });
 
-    // Draw vertical lines for entry and exit points
+    // Draw horizontal lines and circles for entry and exit points
     tradeConnections.forEach((conn) => {
       // Find the closest candle to the entry timestamp
       const visibleCandles = candles.slice(startIndex);
@@ -333,27 +333,22 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       if (!entryCandle) return;
       
       const entryX = scaleTime(entryCandle.timestamp);
+      const entryY = scalePrice(conn.entry.price);
       
       // Determine color based on trade status
-      let color = 'hsl(217, 91%, 60%)'; // Blue for open trades
+      let color = 'hsl(142, 76%, 50%)'; // Green for CALL
+      if (conn.entry.tradeType === 'PUT') {
+        color = 'hsl(0, 84%, 60%)'; // Red for PUT
+      }
+      
+      // For closed trades, use win/loss color
       if (conn.exit) {
         color = conn.exit.status === 'won' ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
       }
       
-      // Check if entry is within visible range
-      if (entryX >= leftMargin && entryX <= canvas.width - rightMargin) {
-        // Draw vertical line at entry point
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([]);
-        ctx.globalAlpha = 0.6;
-        ctx.beginPath();
-        ctx.moveTo(entryX, topMargin);
-        ctx.lineTo(entryX, canvas.height - bottomMargin);
-        ctx.stroke();
-      }
+      // Calculate exit position if exists
+      let exitX = entryX;
       
-      // Draw vertical line at exit point if trade is closed
       if (conn.exit) {
         // Find the closest candle to the exit timestamp
         let exitCandle: Candle | undefined = undefined;
@@ -368,111 +363,77 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
         }
         
         if (exitCandle) {
-          const exitX = scaleTime(exitCandle.timestamp);
-          
-          // Check if exit is within visible range
-          if (exitX >= leftMargin && exitX <= canvas.width - rightMargin) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([]);
-            ctx.globalAlpha = 0.6;
-            ctx.beginPath();
-            ctx.moveTo(exitX, topMargin);
-            ctx.lineTo(exitX, canvas.height - bottomMargin);
-            ctx.stroke();
-          }
-          
-          // Draw connection line between entry and exit if both in range
-          if (entryX >= leftMargin - 100 && exitX <= canvas.width - rightMargin + 100) {
-            const entryY = scalePrice(conn.entry.price);
-            const exitY = scalePrice(conn.exit.price);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([5, 5]);
-            ctx.globalAlpha = 0.3;
-            ctx.beginPath();
-            ctx.moveTo(Math.max(entryX, leftMargin), entryY);
-            ctx.lineTo(Math.min(exitX, canvas.width - rightMargin), exitY);
-            ctx.stroke();
-          }
+          exitX = scaleTime(exitCandle.timestamp);
         }
       }
       
-      ctx.globalAlpha = 1;
+      // Draw horizontal dashed line at entry price (always horizontal)
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 4]);
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      
+      if (conn.exit) {
+        // If trade is closed, draw horizontal line from entry to exit
+        ctx.moveTo(Math.max(entryX, leftMargin), entryY);
+        ctx.lineTo(Math.min(exitX, canvas.width - rightMargin), entryY);
+      } else {
+        // If trade is still open, draw horizontal line from entry to end of chart
+        ctx.moveTo(Math.max(entryX, leftMargin), entryY);
+        ctx.lineTo(canvas.width - rightMargin, entryY);
+      }
+      ctx.stroke();
       ctx.setLineDash([]);
-    });
-
-    // Draw markers on candles
-    visibleMarkers.forEach(marker => {
-      // Find the closest candle to this marker
-      let closestCandleIndex = -1;
-      let minTimeDiff = Infinity;
+      ctx.globalAlpha = 1;
       
-      candles.slice(startIndex).forEach((candle, i) => {
-        const timeDiff = Math.abs(candle.timestamp - marker.timestamp);
-        if (timeDiff < minTimeDiff) {
-          minTimeDiff = timeDiff;
-          closestCandleIndex = i;
-        }
-      });
-      
-      if (closestCandleIndex === -1) return;
-      
-      // Get candle position
-      const x = leftMargin + closestCandleIndex * candleSpacing + candleSpacing / 2;
-      const candle = candles[startIndex + closestCandleIndex];
-      const y = scalePrice(marker.price);
-      
-      if (marker.type === 'entry') {
-        // Entry marker - arrow below the candle
-        const color = marker.tradeType === 'CALL' ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
-        const arrowY = marker.tradeType === 'CALL' ? y + 20 : y - 20;
+      // Draw entry circle
+      if (entryX >= leftMargin && entryX <= canvas.width - rightMargin) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 12;
         
-        // Draw shadow for depth
-        ctx.shadowColor = marker.tradeType === 'CALL' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)';
-        ctx.shadowBlur = 10;
-        
-        ctx.fillStyle = color;
+        // Outer glow circle
+        ctx.fillStyle = color + '40'; // 40 = 25% opacity
         ctx.beginPath();
-        ctx.arc(x, arrowY, 10, 0, Math.PI * 2);
+        ctx.arc(entryX, entryY, 12, 0, Math.PI * 2);
         ctx.fill();
         
+        // Main circle
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(entryX, entryY, 8, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // White border
         ctx.strokeStyle = 'white';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.stroke();
         
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
+      }
+      
+      // Draw exit circle if trade is closed (on the horizontal line at entry price)
+      if (conn.exit && exitX >= leftMargin && exitX <= canvas.width - rightMargin) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 12;
         
-        // Arrow inside circle
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 16px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(marker.tradeType === 'CALL' ? '↑' : '↓', x, arrowY);
-        
-        // Draw line from arrow to price
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([2, 2]);
+        // Outer glow circle
+        ctx.fillStyle = color + '40'; // 40 = 25% opacity
         ctx.beginPath();
-        ctx.moveTo(x, arrowY + (marker.tradeType === 'CALL' ? -10 : 10));
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      } else {
-        // Exit marker - square on the candle
-        const color = marker.status === 'won' ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
+        ctx.arc(exitX, entryY, 12, 0, Math.PI * 2);
+        ctx.fill();
         
-        ctx.shadowColor = marker.status === 'won' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)';
-        ctx.shadowBlur = 10;
-        
+        // Main circle
         ctx.fillStyle = color;
-        ctx.fillRect(x - 8, y - 8, 16, 16);
+        ctx.beginPath();
+        ctx.arc(exitX, entryY, 8, 0, Math.PI * 2);
+        ctx.fill();
         
+        // White border
         ctx.strokeStyle = 'white';
         ctx.lineWidth = 2.5;
-        ctx.strokeRect(x - 8, y - 8, 16, 16);
+        ctx.stroke();
         
         ctx.shadowColor = 'transparent';
         ctx.shadowBlur = 0;
