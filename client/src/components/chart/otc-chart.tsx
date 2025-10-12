@@ -251,21 +251,21 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     });
     priceLineRefsRef.current = [];
     
-    // Set markers for arrows on candles using new v5 API
+    // Set markers for circles on candles (IQ Option style)
     if (markersRef.current) {
       const markers: any[] = [];
       trades.forEach((t) => {
-        // Entry marker - arrow at entry candle
+        // Entry marker - small circle at entry candle
         markers.push({
           time: t.entryTime as any,
-          position: t.type === "buy" ? "belowBar" : "aboveBar",
-          shape: t.type === "buy" ? "arrowUp" : "arrowDown",
+          position: "inBar",
+          shape: "circle",
           color: t.type === "buy" ? "#26a69a" : "#ef5350",
           text: "",
-          size: 2,
+          size: 0.5,
         });
         
-        // Exit marker when trade completes
+        // Exit marker when trade completes - small circle
         if (t.result) {
           markers.push({
             time: t.exitTime as any,
@@ -273,7 +273,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             shape: "circle",
             color: t.result === "win" ? "#26a69a" : "#ef5350",
             text: "",
-            size: 1,
+            size: 0.5,
           });
         }
       });
@@ -285,22 +285,18 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       }
     }
     
-    // Create horizontal price lines for entry (like Quotex/IQ Option)
+    // Create horizontal dashed lines for entry (IQ Option style)
     trades.forEach((t) => {
       try {
-        // Only show price line for ACTIVE trades (not completed)
-        if (!t.result) {
-          const entryLine = seriesRef.current?.createPriceLine({
-            price: t.entryPrice,
-            color: t.type === "buy" ? "#26a69a" : "#ef5350",
-            lineWidth: 3, // Thicker line for better visibility
-            lineStyle: 0, // Solid line (not dashed)
-            axisLabelVisible: true,
-            title: t.type === "buy" ? "دخول ↑" : "دخول ↓",
-          });
-          if (entryLine) priceLineRefsRef.current.push(entryLine);
-        }
-        // Don't show lines for completed trades - they will be in history
+        const entryLine = seriesRef.current?.createPriceLine({
+          price: t.entryPrice,
+          color: t.type === "buy" ? "#26a69a" : "#ef5350",
+          lineWidth: 2,
+          lineStyle: 1, // Dashed line (1 = dashed, 0 = solid)
+          axisLabelVisible: true,
+          title: "",
+        });
+        if (entryLine) priceLineRefsRef.current.push(entryLine);
       } catch (e) {
         console.log("Price line error:", e);
       }
