@@ -265,16 +265,18 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     // Create price lines for trades
     trades.forEach((t) => {
       try {
-        // Entry price line - Golden yellow with glow effect
-        const entryLine = seriesRef.current?.createPriceLine({
-          price: t.entryPrice,
-          color: "#FFD700", // Golden yellow
-          lineWidth: 3,
-          lineStyle: 2, // Dotted line for entry
-          axisLabelVisible: true,
-          title: t.type === "buy" ? "↑" : "↓",
-        });
-        if (entryLine) priceLineRefsRef.current.push(entryLine);
+        // Entry price line - Golden yellow (only for active trades)
+        if (!t.result) {
+          const entryLine = seriesRef.current?.createPriceLine({
+            price: t.entryPrice,
+            color: "#FFD700", // Golden yellow
+            lineWidth: 3,
+            lineStyle: 2, // Dotted line for entry
+            axisLabelVisible: true,
+            title: t.type === "buy" ? "↑" : "↓",
+          });
+          if (entryLine) priceLineRefsRef.current.push(entryLine);
+        }
 
         // Exit price line for completed trades
         if (t.result && t.exitPrice) {
@@ -327,53 +329,57 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     
     // Draw professional circles with glow for each trade
     trades.forEach((t) => {
-      // Get entry time coordinate
-      const entryX = timeScale.timeToCoordinate(t.entryTime as any);
-      if (entryX === null) return;
       
-      // Get Y coordinate for entry price using priceToCoordinate
-      const entryY = priceScale.priceToCoordinate(t.entryPrice);
-      if (entryY === null) return;
+      // Only draw entry circle for active trades
+      if (!t.result) {
+        // Get entry time coordinate
+        const entryX = timeScale.timeToCoordinate(t.entryTime as any);
+        if (entryX === null) return;
+        
+        // Get Y coordinate for entry price using priceToCoordinate
+        const entryY = priceScale.priceToCoordinate(t.entryPrice);
+        if (entryY === null) return;
 
-      // Draw entry circle with golden glow effect
-      // Outer glow
-      ctx.save();
-      ctx.shadowColor = '#FFD700';
-      ctx.shadowBlur = 20;
-      ctx.globalAlpha = 0.6;
-      ctx.beginPath();
-      ctx.arc(entryX, entryY, 12, 0, Math.PI * 2);
-      ctx.fillStyle = '#FFD700';
-      ctx.fill();
-      ctx.restore();
-      
-      // Middle glow
-      ctx.save();
-      ctx.shadowColor = '#FFD700';
-      ctx.shadowBlur = 10;
-      ctx.beginPath();
-      ctx.arc(entryX, entryY, 9, 0, Math.PI * 2);
-      ctx.fillStyle = '#FFD700';
-      ctx.fill();
-      ctx.restore();
+        // Draw entry circle with golden glow effect
+        // Outer glow
+        ctx.save();
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 20;
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.arc(entryX, entryY, 12, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFD700';
+        ctx.fill();
+        ctx.restore();
+        
+        // Middle glow
+        ctx.save();
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(entryX, entryY, 9, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFD700';
+        ctx.fill();
+        ctx.restore();
 
-      // Inner circle
-      ctx.beginPath();
-      ctx.arc(entryX, entryY, 6, 0, Math.PI * 2);
-      ctx.fillStyle = '#FFD700';
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+        // Inner circle
+        ctx.beginPath();
+        ctx.arc(entryX, entryY, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFD700';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
 
-      // Draw direction arrow inside
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(t.type === 'buy' ? '↑' : '↓', entryX, entryY);
+        // Draw direction arrow inside
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(t.type === 'buy' ? '↑' : '↓', entryX, entryY);
+      }
 
-      // Draw exit circle
+      // Draw exit circle for completed trades only
       if (t.result && t.exitPrice) {
         const exitX = timeScale.timeToCoordinate(t.exitTime as any);
         const exitY = priceScale.priceToCoordinate(t.exitPrice);
@@ -406,33 +412,6 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(t.result === 'win' ? '✓' : '✗', exitX, exitY);
-        }
-      } else if (!t.result && lastPrice) {
-        // For active trades, draw pulsing circle at current price
-        const currentY = priceScale.priceToCoordinate(lastPrice);
-        const currentTime = Math.floor(Date.now() / 1000);
-        const currentX = timeScale.timeToCoordinate(currentTime as any);
-
-        if (currentX !== null && currentY !== null) {
-          const pulseSize = 8 + Math.sin(Date.now() / 200) * 2;
-          
-          ctx.save();
-          ctx.shadowColor = '#FFD700';
-          ctx.shadowBlur = 15;
-          ctx.globalAlpha = 0.7;
-          ctx.beginPath();
-          ctx.arc(currentX, currentY, pulseSize, 0, Math.PI * 2);
-          ctx.fillStyle = '#FFD700';
-          ctx.fill();
-          ctx.restore();
-          
-          ctx.beginPath();
-          ctx.arc(currentX, currentY, 6, 0, Math.PI * 2);
-          ctx.fillStyle = '#FFD700';
-          ctx.fill();
-          ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 2;
-          ctx.stroke();
         }
       }
     });
