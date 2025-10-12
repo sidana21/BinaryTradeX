@@ -231,7 +231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get win rate from settings
       const settings = await storage.getSettings();
-      const winRate = parseFloat(settings.winRate) / 100; // Convert percentage to decimal
+      const winRate = parseFloat(settings.winRate || "20.00") / 100; // Convert percentage to decimal
       
       // Determine win/loss based on configured win rate
       const shouldWin = Math.random() < winRate;
