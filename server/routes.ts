@@ -581,28 +581,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // OTC Market simulation - Initialize with all assets
   let otcMarkets: Record<string, number> = {};
   
+  // Track current candle for each pair (to make candles grow gradually)
+  interface CurrentCandle {
+    pair: string;
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    startTime: number;
+  }
+  
+  const currentCandles: Record<string, CurrentCandle> = {};
+  const CANDLE_DURATION = 60; // 60 seconds per candle
+  
   // Initialize OTC markets from assets
   storage.getAllAssets().then(assets => {
     assets.forEach(asset => {
       const pair = asset.id.replace('_OTC', '');
       otcMarkets[pair] = parseFloat(asset.currentPrice);
+      
+      // Initialize first candle for each pair
+      const currentTime = Math.floor(Date.now() / 1000);
+      currentCandles[pair] = {
+        pair,
+        time: currentTime,
+        open: parseFloat(asset.currentPrice),
+        high: parseFloat(asset.currentPrice),
+        low: parseFloat(asset.currentPrice),
+        close: parseFloat(asset.currentPrice),
+        startTime: currentTime
+      };
     });
   });
 
-  const generateOtcCandle = (pair: string, currentPrice: number) => {
+  const updateOtcCandle = (pair: string, currentPrice: number) => {
+    const currentTime = Math.floor(Date.now() / 1000);
     const last = otcMarkets[pair] || currentPrice;
-    const currentTime = Date.now();
     
-    // Determine volatility based on asset type (reduced for calmer movement)
-    let volatility = 0.00005; // Very calm base volatility
+    // Determine volatility based on asset type
+    let volatility = 0.00008;
     if (pair.includes('BTC') || pair.includes('ETH') || pair.includes('LTC') || pair.includes('XRP') || pair.includes('BNB') || pair.includes('ADA')) {
-      volatility = 0.0008; // Calmer volatility for crypto
+      volatility = 0.001;
     } else if (pair.includes('JPY')) {
-      volatility = 0.003; // JPY pairs - reduced
+      volatility = 0.004;
     } else if (pair.includes('GOLD') || pair.includes('SILVER') || pair.includes('OIL')) {
-      volatility = 0.0012; // Commodities - calmer
+      volatility = 0.0015;
     } else if (pair.includes('SPX') || pair.includes('NDX') || pair.includes('DJI') || pair.includes('DAX') || pair.includes('CAC') || pair.includes('FTSE') || pair.includes('NIKKEI')) {
-      volatility = 0.0008; // Indices - calmer
+      volatility = 0.001;
     }
     
     // Check for active trades on this pair to manipulate candles naturally
@@ -610,24 +636,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     activeTrades.forEach(trade => {
       const tradePair = trade.assetId.replace('_OTC', '');
       if (tradePair === pair) {
-        const timeRemaining = trade.expiryTime - currentTime;
+        const timeRemaining = trade.expiryTime - Date.now();
         
-        // Very gradual and calm candle manipulation
         if (timeRemaining <= 25000 && timeRemaining > 0) {
-          const timeProgress = (25000 - timeRemaining) / 25000; // 0 to 1
-          const candleStrength = 0.5 + (timeProgress * 1); // 0.5x to 1.5x gradually (very calm)
+          const timeProgress = (25000 - timeRemaining) / 25000;
+          const candleStrength = 0.5 + (timeProgress * 1);
           
           if (!trade.shouldWin) {
-            // 80% of trades: very subtle candle manipulation
             if (trade.type === 'CALL') {
-              // User wants price up, create gentle bearish pressure
               candleManipulation -= volatility * candleStrength * 0.6;
             } else {
-              // User wants price down, create gentle bullish pressure
               candleManipulation += volatility * candleStrength * 0.6;
             }
           } else {
-            // 20% of trades: help with very natural-looking candles
             if (trade.type === 'CALL') {
               candleManipulation += volatility * candleStrength * 0.3;
             } else {
@@ -638,31 +659,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
     
+    // Calculate new price with natural movement
     const change = (Math.random() - 0.5) * 2 * volatility * last + (candleManipulation * last);
-    const close = last + change;
-    const high = Math.max(last, close) * (1 + Math.random() * volatility * 0.2);
-    const low = Math.min(last, close) * (1 - Math.random() * volatility * 0.2);
+    const newPrice = last + change;
+    otcMarkets[pair] = newPrice;
     
-    otcMarkets[pair] = close;
+    // Check if we need to start a new candle
+    if (!currentCandles[pair] || (currentTime - currentCandles[pair].startTime) >= CANDLE_DURATION) {
+      // Start a new candle
+      currentCandles[pair] = {
+        pair,
+        time: currentTime,
+        open: newPrice,
+        high: newPrice,
+        low: newPrice,
+        close: newPrice,
+        startTime: currentTime
+      };
+    } else {
+      // Update existing candle (making it grow)
+      const candle = currentCandles[pair];
+      candle.close = newPrice;
+      candle.high = Math.max(candle.high, newPrice);
+      candle.low = Math.min(candle.low, newPrice);
+    }
 
-    return {
-      pair,
-      time: Math.floor(Date.now() / 1000),
-      open: last,
-      high,
-      low,
-      close,
-    };
+    return currentCandles[pair];
   };
 
-  // Send OTC candles every 40 seconds for all assets
+  // Update and send OTC candles every 2 seconds (real-time candle growth)
   setInterval(async () => {
     const assets = await storage.getAllAssets();
     
     assets.forEach(asset => {
       const pair = asset.id.replace('_OTC', '');
       const currentPrice = parseFloat(asset.currentPrice);
-      const candle = generateOtcCandle(pair, currentPrice);
+      const candle = updateOtcCandle(pair, currentPrice);
       
       const message = JSON.stringify({
         type: 'otc_candle',
@@ -675,7 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     });
-  }, 40000);
+  }, 2000); // Update every 2 seconds for smooth candle growth
 
   // Trade expiry checker
   const checkTradeExpiry = () => {

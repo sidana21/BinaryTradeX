@@ -130,12 +130,19 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
               close: candle.close,
             };
             
-            // Add to buffer
-            candleBufferRef.current.push(formatted);
-            
-            // Keep only last 100 candles for performance
-            if (candleBufferRef.current.length > 100) {
-              candleBufferRef.current = candleBufferRef.current.slice(-100);
+            // Check if this is an update to the last candle or a new candle
+            const lastCandle = candleBufferRef.current[candleBufferRef.current.length - 1];
+            if (lastCandle && lastCandle.time === formatted.time) {
+              // Update existing candle (making it grow)
+              candleBufferRef.current[candleBufferRef.current.length - 1] = formatted;
+            } else {
+              // Add new candle
+              candleBufferRef.current.push(formatted);
+              
+              // Keep only last 100 candles for performance
+              if (candleBufferRef.current.length > 100) {
+                candleBufferRef.current = candleBufferRef.current.slice(-100);
+              }
             }
             
             // Update chart with all buffered data
