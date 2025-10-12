@@ -102,30 +102,28 @@ export default function TradingPage() {
           </div>
 
           {/* Center - Account Type & Balance */}
-          <div className="flex flex-col items-center">
+          <button 
+            onClick={() => {
+              toggleAccount();
+              toast({
+                title: 'تم التبديل',
+                description: state.isDemoAccount ? 'تم التبديل إلى الحساب الحقيقي' : 'تم التبديل إلى الحساب التجريبي',
+              });
+            }}
+            className="flex flex-col items-center hover:bg-[#1a1f3a] rounded-lg px-3 py-1 transition-colors active:scale-95"
+            data-testid="button-toggle-account"
+          >
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <span>{state.isDemoAccount ? 'OT Demo' : 'حساب حقيقي'}</span>
               <span className="text-gray-500">USD</span>
+              <i className="fas fa-sync-alt text-blue-400 text-[10px]"></i>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold text-white">
                 ${currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <button 
-                className="text-blue-400 hover:text-blue-300 transition-colors" 
-                onClick={() => {
-                  toggleAccount();
-                  toast({
-                    title: 'تم التبديل',
-                    description: state.isDemoAccount ? 'تم التبديل إلى الحساب الحقيقي' : 'تم التبديل إلى الحساب التجريبي',
-                  });
-                }}
-                data-testid="button-toggle-account"
-              >
-                <i className="fas fa-sync-alt text-xs"></i>
-              </button>
             </div>
-          </div>
+          </button>
 
           {/* Right - Wallet */}
           <Link href="/deposit">
