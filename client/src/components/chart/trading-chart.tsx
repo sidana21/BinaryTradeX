@@ -230,7 +230,7 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
     }
     ctx.setLineDash([]);
 
-    // Draw professional candlesticks (Pocket Option style)
+    // Draw professional candlesticks (Enhanced Pocket Option style)
     candles.slice(startIndex).forEach((candle, i) => {
       const x = leftMargin + i * candleSpacing + candleSpacing / 2;
       const isGreen = candle.close >= candle.open;
@@ -243,33 +243,35 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       const bodyHeight = Math.max(Math.abs(closeY - openY), 2);
       const bodyY = Math.min(openY, closeY);
       
-      // Premium color scheme
-      const greenColor = 'hsl(145, 80%, 55%)';
-      const greenDark = 'hsl(145, 80%, 42%)';
-      const redColor = 'hsl(355, 85%, 60%)';
-      const redDark = 'hsl(355, 85%, 48%)';
+      // Enhanced professional color scheme
+      const greenColor = 'hsl(142, 76%, 55%)';
+      const greenDark = 'hsl(142, 76%, 40%)';
+      const redColor = 'hsl(0, 84%, 65%)';
+      const redDark = 'hsl(0, 84%, 50%)';
       
-      // Draw wick with precise width
-      ctx.strokeStyle = isGreen ? greenColor : redColor;
-      ctx.lineWidth = 2;
+      // Draw wick with professional style
+      ctx.strokeStyle = isGreen ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(x, highY);
       ctx.lineTo(x, lowY);
       ctx.stroke();
       
-      // Draw glow effect for depth
-      ctx.shadowColor = isGreen ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)';
-      ctx.shadowBlur = 8;
+      // Enhanced glow effect for professional depth
+      ctx.shadowColor = isGreen ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)';
+      ctx.shadowBlur = 6;
       
-      // Draw body with smooth gradient
+      // Draw body with professional gradient
       const gradient = ctx.createLinearGradient(x - candleWidth/2, bodyY, x + candleWidth/2, bodyY + bodyHeight);
       if (isGreen) {
         gradient.addColorStop(0, greenColor);
-        gradient.addColorStop(0.5, 'hsl(145, 80%, 48%)');
+        gradient.addColorStop(0.3, 'hsl(142, 76%, 52%)');
+        gradient.addColorStop(0.7, 'hsl(142, 76%, 48%)');
         gradient.addColorStop(1, greenDark);
       } else {
         gradient.addColorStop(0, redColor);
-        gradient.addColorStop(0.5, 'hsl(355, 85%, 54%)');
+        gradient.addColorStop(0.3, 'hsl(0, 84%, 62%)');
+        gradient.addColorStop(0.7, 'hsl(0, 84%, 58%)');
         gradient.addColorStop(1, redDark);
       }
       ctx.fillStyle = gradient;
@@ -279,10 +281,17 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       ctx.shadowColor = 'transparent';
       ctx.shadowBlur = 0;
       
-      // Add crisp border for clarity
+      // Add professional border with enhanced visibility
       ctx.strokeStyle = isGreen ? greenDark : redDark;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
       ctx.strokeRect(x - candleWidth/2, bodyY, candleWidth, bodyHeight);
+      
+      // Add subtle highlight on top of candle for 3D effect
+      const highlightGradient = ctx.createLinearGradient(x - candleWidth/2, bodyY, x - candleWidth/2, bodyY + 3);
+      highlightGradient.addColorStop(0, isGreen ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.15)');
+      highlightGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = highlightGradient;
+      ctx.fillRect(x - candleWidth/2, bodyY, candleWidth, Math.min(3, bodyHeight));
     });
 
     // Draw trade markers and connection lines
@@ -306,26 +315,91 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       }
     });
 
-    // Draw connection lines first
+    // Draw vertical lines for entry and exit points
     tradeConnections.forEach((conn) => {
+      // Find the closest candle to the entry timestamp
+      const visibleCandles = candles.slice(startIndex);
+      let entryCandle: Candle | undefined = undefined;
+      let minEntryDiff = Infinity;
+      
+      for (const candle of visibleCandles) {
+        const diff = Math.abs(candle.timestamp - conn.entry.timestamp);
+        if (diff < minEntryDiff) {
+          minEntryDiff = diff;
+          entryCandle = candle;
+        }
+      }
+      
+      if (!entryCandle) return;
+      
+      const entryX = scaleTime(entryCandle.timestamp);
+      
+      // Determine color based on trade status
+      let color = 'hsl(217, 91%, 60%)'; // Blue for open trades
       if (conn.exit) {
-        const entryX = scaleTime(conn.entry.timestamp);
-        const entryY = scalePrice(conn.entry.price);
-        const exitX = scaleTime(conn.exit.timestamp);
-        const exitY = scalePrice(conn.exit.price);
-        
-        const color = conn.exit.status === 'won' ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
+        color = conn.exit.status === 'won' ? 'hsl(142, 76%, 50%)' : 'hsl(0, 84%, 60%)';
+      }
+      
+      // Check if entry is within visible range
+      if (entryX >= leftMargin && entryX <= canvas.width - rightMargin) {
+        // Draw vertical line at entry point
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([5, 5]);
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
         ctx.globalAlpha = 0.6;
         ctx.beginPath();
-        ctx.moveTo(entryX, entryY);
-        ctx.lineTo(exitX, exitY);
+        ctx.moveTo(entryX, topMargin);
+        ctx.lineTo(entryX, canvas.height - bottomMargin);
         ctx.stroke();
-        ctx.globalAlpha = 1;
-        ctx.setLineDash([]);
       }
+      
+      // Draw vertical line at exit point if trade is closed
+      if (conn.exit) {
+        // Find the closest candle to the exit timestamp
+        let exitCandle: Candle | undefined = undefined;
+        let minExitDiff = Infinity;
+        
+        for (const candle of visibleCandles) {
+          const diff = Math.abs(candle.timestamp - conn.exit!.timestamp);
+          if (diff < minExitDiff) {
+            minExitDiff = diff;
+            exitCandle = candle;
+          }
+        }
+        
+        if (exitCandle) {
+          const exitX = scaleTime(exitCandle.timestamp);
+          
+          // Check if exit is within visible range
+          if (exitX >= leftMargin && exitX <= canvas.width - rightMargin) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 0.6;
+            ctx.beginPath();
+            ctx.moveTo(exitX, topMargin);
+            ctx.lineTo(exitX, canvas.height - bottomMargin);
+            ctx.stroke();
+          }
+          
+          // Draw connection line between entry and exit if both in range
+          if (entryX >= leftMargin - 100 && exitX <= canvas.width - rightMargin + 100) {
+            const entryY = scalePrice(conn.entry.price);
+            const exitY = scalePrice(conn.exit.price);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]);
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.moveTo(Math.max(entryX, leftMargin), entryY);
+            ctx.lineTo(Math.min(exitX, canvas.width - rightMargin), exitY);
+            ctx.stroke();
+          }
+        }
+      }
+      
+      ctx.globalAlpha = 1;
+      ctx.setLineDash([]);
     });
 
     // Draw markers on candles
