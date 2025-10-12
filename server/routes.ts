@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertTradeSchema, insertDepositSchema } from "@shared/schema";
+import { insertTradeSchema, insertDepositSchema, updateSettingsSchema } from "@shared/schema";
 import { z } from "zod";
 import axios from "axios";
 
@@ -229,8 +229,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new trade
   app.post("/api/trades", async (req, res) => {
     try {
-      // Determine win/loss (20% win rate)
-      const shouldWin = Math.random() < 0.2;
+      // Get win rate from settings
+      const settings = await storage.getSettings();
+      const winRate = parseFloat(settings.winRate) / 100; // Convert percentage to decimal
+      
+      // Determine win/loss based on configured win rate
+      const shouldWin = Math.random() < winRate;
       
       // Preprocess: convert expiry string to Date and add shouldWin
       const processedBody = {
@@ -252,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shouldWin
       });
       
-      console.log(`Trade ${trade.id} created: ${trade.type} on ${trade.assetId}, shouldWin: ${shouldWin}`);
+      console.log(`Trade ${trade.id} created: ${trade.type} on ${trade.assetId}, shouldWin: ${shouldWin}, winRate: ${settings.winRate}%`);
       
       // Remove shouldWin from response to prevent client from seeing predetermined outcome
       const { shouldWin: _, ...tradeResponse } = trade;
@@ -887,6 +891,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Settings routes
+  app.get("/api/admin/settings", async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.patch("/api/admin/settings", async (req, res) => {
+    try {
+      const validated = updateSettingsSchema.parse(req.body);
+      const settings = await storage.updateSettings(validated);
+      res.json(settings);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid settings data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update settings" });
     }
   });
 
