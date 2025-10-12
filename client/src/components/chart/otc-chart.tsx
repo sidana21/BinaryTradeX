@@ -109,7 +109,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         const message = JSON.parse(ev.data);
         if (message.type === 'otc_candle') {
           const candle: Candle = message.data;
+          console.log('Received candle:', candle.pair, 'Current pair:', currentPairRef.current);
           if (candle.pair === currentPairRef.current) {
+            console.log('Updating chart with candle:', candle);
             const formatted: CandlestickData = {
               time: candle.time as any,
               open: candle.open,
