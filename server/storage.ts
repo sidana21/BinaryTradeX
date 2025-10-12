@@ -7,6 +7,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserBalance(userId: string, demoBalance: string, realBalance: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
 
   // Assets
   getAllAssets(): Promise<Asset[]>;
@@ -20,6 +21,7 @@ export interface IStorage {
   getOpenTradesByUser(userId: string): Promise<Trade[]>;
   createTrade(trade: InsertTrade): Promise<Trade>;
   updateTrade(id: string, closePrice: string, status: string, payout: string): Promise<Trade | undefined>;
+  getAllTrades(): Promise<Trade[]>;
 
   // Price Data
   getPriceData(assetId: string, limit?: number): Promise<PriceData[]>;
@@ -30,6 +32,7 @@ export interface IStorage {
   getDepositsByUser(userId: string): Promise<Deposit[]>;
   createDeposit(deposit: InsertDeposit): Promise<Deposit>;
   updateDepositStatus(id: string, status: string, completedAt?: Date): Promise<Deposit | undefined>;
+  getAllDeposits(): Promise<Deposit[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -120,6 +123,7 @@ export class MemStorage implements IStorage {
       id,
       demoBalance: "10000.00",
       realBalance: "0.00",
+      isAdmin: insertUser.isAdmin ?? false,
       createdAt: new Date()
     };
     this.users.set(id, user);
@@ -134,6 +138,10 @@ export class MemStorage implements IStorage {
       this.users.set(userId, user);
     }
     return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
   }
 
   // Assets
@@ -204,6 +212,14 @@ export class MemStorage implements IStorage {
     return trade;
   }
 
+  async getAllTrades(): Promise<Trade[]> {
+    return Array.from(this.trades.values()).sort((a, b) => {
+      const aTime = a.createdAt?.getTime() ?? 0;
+      const bTime = b.createdAt?.getTime() ?? 0;
+      return bTime - aTime;
+    });
+  }
+
   // Price Data
   async getPriceData(assetId: string, limit: number = 100): Promise<PriceData[]> {
     return Array.from(this.priceData.values())
@@ -265,6 +281,14 @@ export class MemStorage implements IStorage {
       this.deposits.set(id, deposit);
     }
     return deposit;
+  }
+
+  async getAllDeposits(): Promise<Deposit[]> {
+    return Array.from(this.deposits.values()).sort((a, b) => {
+      const aTime = a.createdAt?.getTime() ?? 0;
+      const bTime = b.createdAt?.getTime() ?? 0;
+      return bTime - aTime;
+    });
   }
 }
 

@@ -796,5 +796,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   setInterval(checkTradeExpiry, 1000); // Check every second
 
+  // Admin routes
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/admin/deposits", async (req, res) => {
+    try {
+      const deposits = await storage.getAllDeposits();
+      res.json(deposits);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch deposits" });
+    }
+  });
+
+  app.get("/api/admin/trades", async (req, res) => {
+    try {
+      const trades = await storage.getAllTrades();
+      res.json(trades);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch trades" });
+    }
+  });
+
+  const updateBalanceSchema = z.object({
+    demoBalance: z.string(),
+    realBalance: z.string()
+  });
+
+  app.patch("/api/admin/users/:id/balance", async (req, res) => {
+    try {
+      const { demoBalance, realBalance } = updateBalanceSchema.parse(req.body);
+      const user = await storage.updateUserBalance(req.params.id, demoBalance, realBalance);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid balance data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update balance" });
+    }
+  });
+
+  app.get("/api/admin/stats", async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const deposits = await storage.getAllDeposits();
+      const trades = await storage.getAllTrades();
+
+      const totalUsers = users.length;
+      const totalDeposits = deposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+      const pendingDeposits = deposits.filter(d => d.status === 'pending').length;
+      const completedDeposits = deposits.filter(d => d.status === 'completed').length;
+      
+      const totalTrades = trades.length;
+      const openTrades = trades.filter(t => t.status === 'open').length;
+      const wonTrades = trades.filter(t => t.status === 'won').length;
+      const lostTrades = trades.filter(t => t.status === 'lost').length;
+
+      const totalTradeVolume = trades.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      const totalPayout = trades.reduce((sum, t) => sum + parseFloat(t.payout || '0'), 0);
+
+      res.json({
+        users: {
+          total: totalUsers
+        },
+        deposits: {
+          total: totalDeposits,
+          pending: pendingDeposits,
+          completed: completedDeposits,
+          count: deposits.length
+        },
+        trades: {
+          total: totalTrades,
+          open: openTrades,
+          won: wonTrades,
+          lost: lostTrades,
+          volume: totalTradeVolume,
+          payout: totalPayout
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
   return httpServer;
 }
