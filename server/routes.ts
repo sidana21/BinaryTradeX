@@ -593,7 +593,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   const currentCandles: Record<string, CurrentCandle> = {};
-  const CANDLE_DURATION = 60; // 60 seconds per candle
   
   // Initialize OTC markets from assets
   storage.getAllAssets().then(assets => {
@@ -615,7 +614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  const updateOtcCandle = (pair: string, currentPrice: number) => {
+  const generateOtcPriceUpdate = (pair: string, currentPrice: number) => {
     const currentTime = Math.floor(Date.now() / 1000);
     const last = otcMarkets[pair] || currentPrice;
     
@@ -663,42 +662,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const change = (Math.random() - 0.5) * 2 * volatility * last + (candleManipulation * last);
     const newPrice = last + change;
     otcMarkets[pair] = newPrice;
-    
-    // Check if we need to start a new candle
-    if (!currentCandles[pair] || (currentTime - currentCandles[pair].startTime) >= CANDLE_DURATION) {
-      // Start a new candle
-      currentCandles[pair] = {
-        pair,
-        time: currentTime,
-        open: newPrice,
-        high: newPrice,
-        low: newPrice,
-        close: newPrice,
-        startTime: currentTime
-      };
-    } else {
-      // Update existing candle (making it grow)
-      const candle = currentCandles[pair];
-      candle.close = newPrice;
-      candle.high = Math.max(candle.high, newPrice);
-      candle.low = Math.min(candle.low, newPrice);
-    }
 
-    return currentCandles[pair];
+    // Return price tick data (client will build candles)
+    return {
+      pair,
+      time: currentTime,
+      price: newPrice
+    };
   };
 
-  // Update and send OTC candles every 2 seconds (real-time candle growth)
+  // Send price updates every second (client builds candles based on their interval)
   setInterval(async () => {
     const assets = await storage.getAllAssets();
     
     assets.forEach(asset => {
       const pair = asset.id.replace('_OTC', '');
       const currentPrice = parseFloat(asset.currentPrice);
-      const candle = updateOtcCandle(pair, currentPrice);
+      const priceUpdate = generateOtcPriceUpdate(pair, currentPrice);
       
       const message = JSON.stringify({
-        type: 'otc_candle',
-        data: candle
+        type: 'otc_price_tick',
+        data: priceUpdate
       });
       
       connectedClients.forEach(client => {
@@ -707,7 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     });
-  }, 2000); // Update every 2 seconds for smooth candle growth
+  }, 1000); // Update every second for smooth price movement
 
   // Trade expiry checker
   const checkTradeExpiry = () => {

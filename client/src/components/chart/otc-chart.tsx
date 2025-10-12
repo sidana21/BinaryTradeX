@@ -35,6 +35,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const [lastPrice, setLastPrice] = useState(0);
   const [currentTime, setCurrentTime] = useState(Math.floor(Date.now() / 1000));
   const [showHistory, setShowHistory] = useState(false);
+  const [updateInterval, setUpdateInterval] = useState<number>(15);
 
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<any>(null);
@@ -44,6 +45,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const currentPairRef = useRef(pair);
   const candleBufferRef = useRef<CandlestickData[]>([]);
   const markersRef = useRef<any>(null);
+  const currentCandleRef = useRef<CandlestickData | null>(null);
+  const candleStartTimeRef = useRef<number>(0);
 
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => lastPrice,
@@ -117,49 +120,61 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     ws.onmessage = (ev) => {
       try {
         const message = JSON.parse(ev.data);
-        if (message.type === 'otc_candle') {
-          const candle: Candle = message.data;
-          console.log('Received candle:', candle.pair, 'Current pair:', currentPairRef.current);
-          if (candle.pair === currentPairRef.current) {
-            console.log('Updating chart with candle:', candle);
-            const formatted: CandlestickData = {
-              time: candle.time as any,
-              open: candle.open,
-              high: candle.high,
-              low: candle.low,
-              close: candle.close,
-            };
+        if (message.type === 'otc_price_tick') {
+          const tick = message.data;
+          console.log('Received price tick:', tick.pair, 'price:', tick.price);
+          if (tick.pair === currentPairRef.current) {
+            const currentTime = tick.time;
+            const price = tick.price;
             
-            // Check if this is an update to the last candle or a new candle
-            const lastCandle = candleBufferRef.current[candleBufferRef.current.length - 1];
-            if (lastCandle && lastCandle.time === formatted.time) {
-              // Update existing candle (making it grow)
-              candleBufferRef.current[candleBufferRef.current.length - 1] = formatted;
-            } else {
-              // Add new candle
-              candleBufferRef.current.push(formatted);
+            // Check if we need to start a new candle based on updateInterval
+            if (!currentCandleRef.current || (currentTime - candleStartTimeRef.current) >= updateInterval) {
+              // Save previous candle if exists
+              if (currentCandleRef.current) {
+                candleBufferRef.current.push(currentCandleRef.current);
+                
+                // Keep only last 100 candles for performance
+                if (candleBufferRef.current.length > 100) {
+                  candleBufferRef.current = candleBufferRef.current.slice(-100);
+                }
+              }
               
-              // Keep only last 100 candles for performance
-              if (candleBufferRef.current.length > 100) {
-                candleBufferRef.current = candleBufferRef.current.slice(-100);
+              // Start new candle
+              candleStartTimeRef.current = currentTime;
+              currentCandleRef.current = {
+                time: currentTime as any,
+                open: price,
+                high: price,
+                low: price,
+                close: price,
+              };
+            } else {
+              // Update existing candle
+              if (currentCandleRef.current) {
+                currentCandleRef.current.close = price;
+                currentCandleRef.current.high = Math.max(currentCandleRef.current.high, price);
+                currentCandleRef.current.low = Math.min(currentCandleRef.current.low, price);
               }
             }
             
-            // Update chart with all buffered data
-            seriesRef.current?.setData(candleBufferRef.current);
+            // Update chart with buffered candles + current candle
+            const allCandles = currentCandleRef.current 
+              ? [...candleBufferRef.current, currentCandleRef.current]
+              : candleBufferRef.current;
+            seriesRef.current?.setData(allCandles);
             
-            setLastPrice(candle.close);
-            onPriceUpdate?.(candle.close);
+            setLastPrice(price);
+            onPriceUpdate?.(price);
 
             // تحديث نتائج الصفقات
             setTrades((old) =>
               old.map((t) =>
-                !t.result && candle.time >= t.exitTime
+                !t.result && currentTime >= t.exitTime
                   ? {
                       ...t,
                       result:
-                        (t.type === "buy" && candle.close > t.entryPrice) ||
-                        (t.type === "sell" && candle.close < t.entryPrice)
+                        (t.type === "buy" && price > t.entryPrice) ||
+                        (t.type === "sell" && price < t.entryPrice)
                           ? "win"
                           : "lose",
                     }
@@ -196,12 +211,25 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     console.log('Chart pair changed to:', pair);
     currentPairRef.current = pair;
     candleBufferRef.current = [];
+    currentCandleRef.current = null;
+    candleStartTimeRef.current = 0;
     if (seriesRef.current) {
       seriesRef.current.setData([]);
       setLastPrice(0);
       setTrades([]);
     }
   }, [pair]);
+
+  // Reset current candle and clear buffer when update interval changes
+  useEffect(() => {
+    console.log('Update interval changed to:', updateInterval);
+    currentCandleRef.current = null;
+    candleStartTimeRef.current = 0;
+    candleBufferRef.current = [];
+    if (seriesRef.current) {
+      seriesRef.current.setData([]);
+    }
+  }, [updateInterval]);
 
   // Log buffer size for debugging
   useEffect(() => {
@@ -293,6 +321,21 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
 
   return (
     <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative">
+      {/* Update Interval Selector */}
+      <div className="absolute top-4 right-4 z-30">
+        <select
+          value={updateInterval}
+          onChange={(e) => setUpdateInterval(Number(e.target.value))}
+          className="bg-[#1a2847] text-white border border-blue-500/30 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          data-testid="select-update-interval"
+        >
+          <option value={5}>5 ث</option>
+          <option value={15}>15 ث</option>
+          <option value={30}>30 ث</option>
+          <option value={50}>50 ث</option>
+        </select>
+      </div>
+
       <div ref={containerRef} className="flex-1 w-full min-h-[300px]" data-testid="otc-chart" />
 
       {/* Countdown timer overlay for active trades */}
