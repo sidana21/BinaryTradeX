@@ -48,7 +48,6 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const markersRef = useRef<any>(null);
   const currentCandleRef = useRef<CandlestickData | null>(null);
   const candleStartTimeRef = useRef<number>(0);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => lastPrice,
@@ -246,91 +245,107 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     console.log('Chart buffer size:', candleBufferRef.current.length, 'Series exists:', !!seriesRef.current);
   }, [candleBufferRef.current.length]);
 
-  // Canvas overlay for drawing custom trade lines (IQ Option style)
+  // Price lines and markers for entry/exit visualization (IQ Option style)
+  const priceLineRefsRef = useRef<any[]>([]);
+  
   useEffect(() => {
-    if (!chartRef.current || !containerRef.current || !canvasRef.current) return;
+    if (!seriesRef.current) return;
     
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size to match container
-    canvas.width = containerRef.current.clientWidth;
-    canvas.height = containerRef.current.clientHeight;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw trade lines
-    trades.forEach((t) => {
-      if (!chartRef.current || !seriesRef.current) return;
-
-      const timeScale = chartRef.current.timeScale();
-
-      // Get entry point coordinates
-      const entryX = timeScale.timeToCoordinate(t.entryTime as any);
-      const entryY = seriesRef.current.priceToCoordinate(t.entryPrice);
-
-      // Get exit point coordinates
-      const exitX = timeScale.timeToCoordinate(t.exitTime as any);
-      
-      // For active trades, use current price; for completed trades, use stored exit price
-      let exitPrice = lastPrice;
-      if (t.exitPrice !== undefined) {
-        exitPrice = t.exitPrice;
-      }
-      const exitY = seriesRef.current.priceToCoordinate(exitPrice);
-
-      if (entryX === null || entryY === null || exitX === null || exitY === null) return;
-
-      // Set color based on trade type and result
-      let lineColor = t.type === 'buy' ? '#26a69a' : '#ef5350';
-      if (t.result) {
-        lineColor = t.result === 'win' ? '#26a69a' : '#ef5350';
-      }
-
-      // Draw line from entry to exit
-      ctx.beginPath();
-      ctx.moveTo(entryX, entryY);
-      ctx.lineTo(exitX, exitY);
-      ctx.strokeStyle = lineColor;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]); // Dashed line
-      ctx.stroke();
-      ctx.setLineDash([]); // Reset dash
-
-      // Draw entry point circle
-      ctx.beginPath();
-      ctx.arc(entryX, entryY, 6, 0, Math.PI * 2);
-      ctx.fillStyle = lineColor;
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Draw exit point circle
-      ctx.beginPath();
-      ctx.arc(exitX, exitY, 6, 0, Math.PI * 2);
-      ctx.fillStyle = lineColor;
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+    // Clear old price lines
+    priceLineRefsRef.current.forEach(line => {
+      try {
+        seriesRef.current?.removePriceLine(line);
+      } catch (e) {}
     });
-  }, [trades, lastPrice, currentTime]);
-
-  // Handle canvas resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (canvasRef.current && containerRef.current) {
-        canvasRef.current.width = containerRef.current.clientWidth;
-        canvasRef.current.height = containerRef.current.clientHeight;
+    priceLineRefsRef.current = [];
+    
+    // Set markers for entry and exit points (IQ Option style)
+    if (markersRef.current) {
+      const markers: any[] = [];
+      trades.forEach((t) => {
+        // Entry marker - circle at entry candle
+        markers.push({
+          time: t.entryTime as any,
+          position: "inBar",
+          shape: "circle",
+          color: t.type === "buy" ? "#26a69a" : "#ef5350",
+          text: "",
+          size: 1.5,
+        });
+        
+        // Exit marker when trade completes - circle
+        if (t.result) {
+          markers.push({
+            time: t.exitTime as any,
+            position: "inBar",
+            shape: "circle",
+            color: t.result === "win" ? "#26a69a" : "#ef5350",
+            text: "",
+            size: 1.5,
+          });
+        }
+      });
+      
+      try {
+        markersRef.current.setMarkers(markers);
+      } catch (e) {
+        console.log("Markers:", e);
       }
-    };
+    }
+    
+    // Create price lines for trades
+    trades.forEach((t) => {
+      try {
+        // Entry price line
+        const entryLine = seriesRef.current?.createPriceLine({
+          price: t.entryPrice,
+          color: t.type === "buy" ? "#26a69a" : "#ef5350",
+          lineWidth: 2,
+          lineStyle: 2, // Dotted line
+          axisLabelVisible: true,
+          title: "",
+        });
+        if (entryLine) priceLineRefsRef.current.push(entryLine);
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+        // Current price line for active trades
+        if (!t.result && lastPrice) {
+          const currentLine = seriesRef.current?.createPriceLine({
+            price: lastPrice,
+            color: t.type === "buy" ? "#26a69a80" : "#ef535080",
+            lineWidth: 2,
+            lineStyle: 0, // Solid line
+            axisLabelVisible: false,
+            title: "",
+          });
+          if (currentLine) priceLineRefsRef.current.push(currentLine);
+        }
+
+        // Exit price line for completed trades
+        if (t.result && t.exitPrice) {
+          const exitLine = seriesRef.current?.createPriceLine({
+            price: t.exitPrice,
+            color: t.result === "win" ? "#26a69a" : "#ef5350",
+            lineWidth: 2,
+            lineStyle: 0, // Solid line
+            axisLabelVisible: true,
+            title: "",
+          });
+          if (exitLine) priceLineRefsRef.current.push(exitLine);
+        }
+      } catch (e) {
+        console.log("Price line error:", e);
+      }
+    });
+    
+    return () => {
+      // Cleanup price lines on unmount
+      priceLineRefsRef.current.forEach(line => {
+        try {
+          seriesRef.current?.removePriceLine(line);
+        } catch (e) {}
+      });
+    };
+  }, [trades, lastPrice]);
 
   // Calculate countdown and profit/loss for active trades
   const activeTrades = trades.filter(t => !t.result);
@@ -353,14 +368,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         </select>
       </div>
 
-      <div className="flex-1 w-full min-h-[300px] relative">
-        <div ref={containerRef} className="absolute inset-0" data-testid="otc-chart" />
-        <canvas 
-          ref={canvasRef} 
-          className="absolute inset-0 pointer-events-none z-10"
-          style={{ width: '100%', height: '100%' }}
-        />
-      </div>
+      <div ref={containerRef} className="flex-1 w-full min-h-[300px]" data-testid="otc-chart" />
 
       {/* Countdown timer overlay for active trades */}
       {activeTrades.map((t) => {
