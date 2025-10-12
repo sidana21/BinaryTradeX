@@ -243,14 +243,14 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       const bodyHeight = Math.max(Math.abs(closeY - openY), 2);
       const bodyY = Math.min(openY, closeY);
       
-      // Dark green and red color scheme
-      const greenColor = 'hsl(142, 70%, 35%)';
-      const greenDark = 'hsl(142, 70%, 25%)';
-      const redColor = 'hsl(0, 75%, 50%)';
-      const redDark = 'hsl(0, 75%, 40%)';
+      // Bright neon color scheme matching Pocket Option
+      const greenColor = 'hsl(120, 100%, 50%)';
+      const greenDark = 'hsl(120, 100%, 40%)';
+      const redColor = 'hsl(10, 100%, 60%)';
+      const redDark = 'hsl(10, 100%, 50%)';
       
       // Draw wick with professional style
-      ctx.strokeStyle = isGreen ? 'hsl(142, 70%, 30%)' : 'hsl(0, 75%, 45%)';
+      ctx.strokeStyle = isGreen ? 'hsl(120, 100%, 45%)' : 'hsl(10, 100%, 55%)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(x, highY);
@@ -258,20 +258,20 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       ctx.stroke();
       
       // Enhanced glow effect for professional depth
-      ctx.shadowColor = isGreen ? 'rgba(22, 163, 74, 0.35)' : 'rgba(220, 38, 38, 0.35)';
+      ctx.shadowColor = isGreen ? 'rgba(0, 255, 0, 0.4)' : 'rgba(255, 68, 68, 0.4)';
       ctx.shadowBlur = 6;
       
       // Draw body with professional gradient
       const gradient = ctx.createLinearGradient(x - candleWidth/2, bodyY, x + candleWidth/2, bodyY + bodyHeight);
       if (isGreen) {
         gradient.addColorStop(0, greenColor);
-        gradient.addColorStop(0.3, 'hsl(142, 70%, 32%)');
-        gradient.addColorStop(0.7, 'hsl(142, 70%, 28%)');
+        gradient.addColorStop(0.3, 'hsl(120, 100%, 48%)');
+        gradient.addColorStop(0.7, 'hsl(120, 100%, 45%)');
         gradient.addColorStop(1, greenDark);
       } else {
         gradient.addColorStop(0, redColor);
-        gradient.addColorStop(0.3, 'hsl(0, 75%, 48%)');
-        gradient.addColorStop(0.7, 'hsl(0, 75%, 44%)');
+        gradient.addColorStop(0.3, 'hsl(10, 100%, 58%)');
+        gradient.addColorStop(0.7, 'hsl(10, 100%, 55%)');
         gradient.addColorStop(1, redDark);
       }
       ctx.fillStyle = gradient;
@@ -288,7 +288,7 @@ export function TradingChart({ asset, timeframe, onTimeframeChange, openTrades =
       
       // Add subtle highlight on top of candle for 3D effect
       const highlightGradient = ctx.createLinearGradient(x - candleWidth/2, bodyY, x - candleWidth/2, bodyY + 3);
-      highlightGradient.addColorStop(0, isGreen ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.15)');
+      highlightGradient.addColorStop(0, isGreen ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.2)');
       highlightGradient.addColorStop(1, 'transparent');
       ctx.fillStyle = highlightGradient;
       ctx.fillRect(x - candleWidth/2, bodyY, candleWidth, Math.min(3, bodyHeight));
