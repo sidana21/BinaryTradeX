@@ -628,19 +628,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!priceMomentum[pair]) priceMomentum[pair] = 0;
     if (!priceHistory[pair]) priceHistory[pair] = [last];
     
-    // Determine volatility based on asset type
-    let volatility = 0.00005; // Reduced for smoother movement
+    // Determine volatility based on asset type - Very low for natural movement
+    let volatility = 0.00002; // Much lower for realistic candles
     if (pair.includes('BTC') || pair.includes('ETH') || pair.includes('LTC') || pair.includes('XRP') || pair.includes('BNB') || pair.includes('ADA')) {
-      volatility = 0.0008;
+      volatility = 0.0003; // Reduced crypto volatility
     } else if (pair.includes('JPY')) {
-      volatility = 0.003;
+      volatility = 0.0008; // Much lower JPY volatility
     } else if (pair.includes('GOLD') || pair.includes('SILVER') || pair.includes('OIL')) {
-      volatility = 0.001;
+      volatility = 0.0003; // Lower commodity volatility
     } else if (pair.includes('SPX') || pair.includes('NDX') || pair.includes('DJI') || pair.includes('DAX') || pair.includes('CAC') || pair.includes('FTSE') || pair.includes('NIKKEI')) {
-      volatility = 0.0008;
+      volatility = 0.0003; // Lower index volatility
     }
     
-    // Check for active trades on this pair to manipulate candles naturally
+    // Check for active trades on this pair to manipulate candles subtly
     let candleManipulation = 0;
     activeTrades.forEach(trade => {
       const tradePair = trade.assetId.replace('_OTC', '');
@@ -649,38 +649,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         if (timeRemaining <= 25000 && timeRemaining > 0) {
           const timeProgress = (25000 - timeRemaining) / 25000;
-          const candleStrength = 0.5 + (timeProgress * 1);
+          const candleStrength = 0.3 + (timeProgress * 0.5); // Reduced strength
           
           if (!trade.shouldWin) {
             if (trade.type === 'CALL') {
-              candleManipulation -= volatility * candleStrength * 0.6;
+              candleManipulation -= volatility * candleStrength * 0.3; // Reduced manipulation
             } else {
-              candleManipulation += volatility * candleStrength * 0.6;
+              candleManipulation += volatility * candleStrength * 0.3;
             }
           } else {
             if (trade.type === 'CALL') {
-              candleManipulation += volatility * candleStrength * 0.3;
+              candleManipulation += volatility * candleStrength * 0.15; // Very subtle
             } else {
-              candleManipulation -= volatility * candleStrength * 0.3;
+              candleManipulation -= volatility * candleStrength * 0.15;
             }
           }
         }
       }
     });
     
-    // Realistic price movement with momentum and mean reversion
+    // Realistic price movement with strong mean reversion
     const history = priceHistory[pair];
-    const recentAvg = history.slice(-10).reduce((a, b) => a + b, 0) / Math.min(10, history.length);
+    const recentAvg = history.slice(-20).reduce((a, b) => a + b, 0) / Math.min(20, history.length);
     
-    // Mean reversion force (price tends to return to average)
-    const meanReversionForce = (recentAvg - last) * 0.02;
+    // Strong mean reversion force (price strongly tends to return to average)
+    const meanReversionForce = (recentAvg - last) * 0.08;
     
-    // Random walk component (reduced for smoother movement)
-    const randomWalk = (Math.random() - 0.5) * volatility * last;
+    // Random walk component (very small for natural micro-movements)
+    const randomWalk = (Math.random() - 0.5) * volatility * last * 0.5;
     
-    // Momentum persistence (70% of previous momentum + new random)
-    const momentumDecay = 0.7;
-    const newMomentum = priceMomentum[pair] * momentumDecay + randomWalk * 0.3;
+    // Momentum persistence (80% decay for smoother movement)
+    const momentumDecay = 0.8;
+    const newMomentum = priceMomentum[pair] * momentumDecay + randomWalk * 0.2;
     priceMomentum[pair] = newMomentum;
     
     // Combine all forces for natural movement
