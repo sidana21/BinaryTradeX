@@ -326,15 +326,15 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       {/* History Modal */}
       {showHistory && completedTrades.length > 0 && (
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-40 flex items-center justify-center p-4">
-          <div className="bg-[#1a2847] rounded-lg p-4 max-w-2xl w-full max-h-96 overflow-y-auto">
+          <div className="bg-[#1a2847] rounded-lg p-4 max-w-2xl w-full max-h-96 overflow-y-auto relative">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-bold text-lg">سجل الصفقات المنتهية</h3>
               <button
                 onClick={() => setShowHistory(false)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="bg-red-600 hover:bg-red-700 text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors font-bold text-lg"
                 data-testid="button-close-history"
               >
-                <i className="fas fa-times text-xl"></i>
+                ✕
               </button>
             </div>
             <div className="space-y-2">
