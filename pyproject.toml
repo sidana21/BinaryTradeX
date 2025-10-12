@@ -13,4 +13,6 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "email-validator>=2.3.0",
     "gunicorn>=23.0.0",
+    "gevent>=25.9.1",
+    "gevent-websocket>=0.10.1",
 ]
