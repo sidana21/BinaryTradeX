@@ -531,18 +531,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start price simulation (every 1 second for smooth 1-minute candles)
   setInterval(simulatePrices, 1000); // Update every 1 second
 
-  // OTC Market simulation
-  let otcMarkets: Record<string, number> = {
-    "EURUSD": 1.1000,
-    "USDJPY": 149.300,
-    "GBPUSD": 1.2500,
-  };
+  // OTC Market simulation - Initialize with all assets
+  let otcMarkets: Record<string, number> = {};
+  
+  // Initialize OTC markets from assets
+  storage.getAllAssets().then(assets => {
+    assets.forEach(asset => {
+      const pair = asset.id.replace('_OTC', '');
+      otcMarkets[pair] = parseFloat(asset.currentPrice);
+    });
+  });
 
-  const generateOtcCandle = (pair: string) => {
-    const last = otcMarkets[pair];
-    const close = last + (Math.random() - 0.5) * (pair === "USDJPY" ? 0.05 : 0.01);
-    const high = Math.max(last, close) + Math.random() * 0.005;
-    const low = Math.min(last, close) - Math.random() * 0.005;
+  const generateOtcCandle = (pair: string, currentPrice: number) => {
+    const last = otcMarkets[pair] || currentPrice;
+    
+    // Determine volatility based on asset type
+    let volatility = 0.0001;
+    if (pair.includes('BTC') || pair.includes('ETH') || pair.includes('LTC') || pair.includes('XRP') || pair.includes('BNB') || pair.includes('ADA')) {
+      volatility = 0.002; // Higher volatility for crypto
+    } else if (pair.includes('JPY')) {
+      volatility = 0.01; // JPY pairs have different scale
+    } else if (pair.includes('GOLD') || pair.includes('SILVER') || pair.includes('OIL')) {
+      volatility = 0.003; // Commodities
+    } else if (pair.includes('SPX') || pair.includes('NDX') || pair.includes('DJI') || pair.includes('DAX') || pair.includes('CAC') || pair.includes('FTSE') || pair.includes('NIKKEI')) {
+      volatility = 0.002; // Indices
+    }
+    
+    const change = (Math.random() - 0.5) * 2 * volatility * last;
+    const close = last + change;
+    const high = Math.max(last, close) * (1 + Math.random() * volatility * 0.5);
+    const low = Math.min(last, close) * (1 - Math.random() * volatility * 0.5);
+    
     otcMarkets[pair] = close;
 
     return {
@@ -555,10 +574,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
   };
 
-  // Send OTC candles every 3 seconds
-  setInterval(() => {
-    for (let pair in otcMarkets) {
-      const candle = generateOtcCandle(pair);
+  // Send OTC candles every 2 seconds for all assets
+  setInterval(async () => {
+    const assets = await storage.getAllAssets();
+    
+    assets.forEach(asset => {
+      const pair = asset.id.replace('_OTC', '');
+      const currentPrice = parseFloat(asset.currentPrice);
+      const candle = generateOtcCandle(pair, currentPrice);
+      
       const message = JSON.stringify({
         type: 'otc_candle',
         data: candle
@@ -569,8 +593,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           client.send(message);
         }
       });
-    }
-  }, 3000);
+    });
+  }, 2000);
 
   // Trade expiry checker
   const checkTradeExpiry = () => {

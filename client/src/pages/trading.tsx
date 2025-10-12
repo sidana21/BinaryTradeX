@@ -111,7 +111,17 @@ export default function TradingPage() {
               <span className="text-lg font-bold text-white">
                 ${currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <button className="text-blue-400" onClick={toggleAccount}>
+              <button 
+                className="text-blue-400 hover:text-blue-300 transition-colors" 
+                onClick={() => {
+                  toggleAccount();
+                  toast({
+                    title: 'تم التبديل',
+                    description: state.isDemoAccount ? 'تم التبديل إلى الحساب الحقيقي' : 'تم التبديل إلى الحساب التجريبي',
+                  });
+                }}
+                data-testid="button-toggle-account"
+              >
                 <i className="fas fa-sync-alt text-xs"></i>
               </button>
             </div>
@@ -170,24 +180,111 @@ export default function TradingPage() {
           {/* Time - Temps */}
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">Temps</label>
-            <div className="bg-[#1a1f3a] rounded-lg px-3 py-2.5 flex items-center justify-between">
-              <span className="text-white font-medium text-sm">00:01:00</span>
-              <i className="far fa-clock text-gray-400 text-sm"></i>
+            <div className="bg-[#1a1f3a] rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => updateState({ selectedTimeframe: '1m' })}
+                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                    state.selectedTimeframe === '1m' 
+                      ? 'bg-blue-500 text-white' 
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  data-testid="button-timeframe-1m"
+                >
+                  1m
+                </button>
+                <button
+                  onClick={() => updateState({ selectedTimeframe: '5m' })}
+                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                    state.selectedTimeframe === '5m' 
+                      ? 'bg-blue-500 text-white' 
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  data-testid="button-timeframe-5m"
+                >
+                  5m
+                </button>
+                <button
+                  onClick={() => updateState({ selectedTimeframe: '15m' })}
+                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                    state.selectedTimeframe === '15m' 
+                      ? 'bg-blue-500 text-white' 
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  data-testid="button-timeframe-15m"
+                >
+                  15m
+                </button>
+                <i className="far fa-clock text-gray-400 text-sm ml-auto"></i>
+              </div>
             </div>
           </div>
           
           {/* Amount - Montant */}
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">Montant</label>
-            <div className="bg-[#1a1f3a] rounded-lg px-3 py-2.5 flex items-center justify-between">
-              <input
-                type="number"
-                value={state.tradeAmount}
-                onChange={(e) => updateState({ tradeAmount: parseFloat(e.target.value) || 10 })}
-                className="bg-transparent text-white font-medium w-full outline-none text-sm"
-                data-testid="input-trade-amount"
-              />
-              <i className="fas fa-dollar-sign text-gray-400 text-xs"></i>
+            <div className="bg-[#1a1f3a] rounded-lg px-3 py-2.5">
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  onClick={() => updateState({ tradeAmount: Math.max(1, state.tradeAmount - 10) })}
+                  className="w-6 h-6 rounded bg-[#252b4a] hover:bg-[#2f3555] text-white flex items-center justify-center transition-colors"
+                  data-testid="button-decrease-amount"
+                >
+                  <i className="fas fa-minus text-xs"></i>
+                </button>
+                <input
+                  type="number"
+                  value={state.tradeAmount}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    if (!isNaN(value) && value >= 1) {
+                      updateState({ tradeAmount: value });
+                    }
+                  }}
+                  min="1"
+                  step="1"
+                  className="flex-1 bg-transparent text-white font-medium text-center outline-none text-sm"
+                  data-testid="input-trade-amount"
+                />
+                <button
+                  onClick={() => updateState({ tradeAmount: Math.min(currentBalance, state.tradeAmount + 10) })}
+                  className="w-6 h-6 rounded bg-[#252b4a] hover:bg-[#2f3555] text-white flex items-center justify-center transition-colors"
+                  data-testid="button-increase-amount"
+                >
+                  <i className="fas fa-plus text-xs"></i>
+                </button>
+                <i className="fas fa-dollar-sign text-gray-400 text-xs"></i>
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => updateState({ tradeAmount: 10 })}
+                  className="flex-1 px-2 py-0.5 bg-[#252b4a] hover:bg-[#2f3555] text-gray-300 text-xs rounded transition-colors"
+                  data-testid="button-amount-10"
+                >
+                  10
+                </button>
+                <button
+                  onClick={() => updateState({ tradeAmount: 50 })}
+                  className="flex-1 px-2 py-0.5 bg-[#252b4a] hover:bg-[#2f3555] text-gray-300 text-xs rounded transition-colors"
+                  data-testid="button-amount-50"
+                >
+                  50
+                </button>
+                <button
+                  onClick={() => updateState({ tradeAmount: 100 })}
+                  className="flex-1 px-2 py-0.5 bg-[#252b4a] hover:bg-[#2f3555] text-gray-300 text-xs rounded transition-colors"
+                  data-testid="button-amount-100"
+                >
+                  100
+                </button>
+                <button
+                  onClick={() => updateState({ tradeAmount: Math.min(currentBalance, 500) })}
+                  className="flex-1 px-2 py-0.5 bg-[#252b4a] hover:bg-[#2f3555] text-gray-300 text-xs rounded transition-colors"
+                  data-testid="button-amount-500"
+                >
+                  500
+                </button>
+              </div>
             </div>
           </div>
         </div>

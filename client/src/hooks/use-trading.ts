@@ -13,6 +13,18 @@ interface TradingState {
   userId: string;
 }
 
+const getStoredBalance = (key: string, defaultValue: number): number => {
+  if (typeof window === 'undefined') return defaultValue;
+  const stored = localStorage.getItem(key);
+  return stored ? parseFloat(stored) : defaultValue;
+};
+
+const setStoredBalance = (key: string, value: number) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(key, value.toString());
+  }
+};
+
 export function useTrading() {
   const queryClient = useQueryClient();
   const [state, setState] = useState<TradingState>({
@@ -20,8 +32,8 @@ export function useTrading() {
     selectedTimeframe: '1m',
     tradeAmount: 100,
     isDemoAccount: true,
-    demoBalance: 10000,
-    realBalance: 0,
+    demoBalance: getStoredBalance('demoBalance', 10000),
+    realBalance: getStoredBalance('realBalance', 0),
     userId: 'demo_user', // In a real app, this would come from authentication
   });
 
@@ -64,15 +76,19 @@ export function useTrading() {
       // Update balance
       const tradeAmount = parseFloat(trade.amount);
       if (state.isDemoAccount) {
+        const newBalance = state.demoBalance - tradeAmount;
         setState(prev => ({
           ...prev,
-          demoBalance: prev.demoBalance - tradeAmount
+          demoBalance: newBalance
         }));
+        setStoredBalance('demoBalance', newBalance);
       } else {
+        const newBalance = state.realBalance - tradeAmount;
         setState(prev => ({
           ...prev,
-          realBalance: prev.realBalance - tradeAmount
+          realBalance: newBalance
         }));
+        setStoredBalance('realBalance', newBalance);
       }
       
       // Invalidate all trade queries to refresh data
@@ -102,15 +118,19 @@ export function useTrading() {
       if (trade.status === 'won' && trade.payout) {
         const payout = parseFloat(trade.payout);
         if (state.isDemoAccount) {
+          const newBalance = state.demoBalance + payout;
           setState(prev => ({
             ...prev,
-            demoBalance: prev.demoBalance + payout
+            demoBalance: newBalance
           }));
+          setStoredBalance('demoBalance', newBalance);
         } else {
+          const newBalance = state.realBalance + payout;
           setState(prev => ({
             ...prev,
-            realBalance: prev.realBalance + payout
+            realBalance: newBalance
           }));
+          setStoredBalance('realBalance', newBalance);
         }
       }
       
