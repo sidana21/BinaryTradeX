@@ -64,6 +64,15 @@ export const deposits = pgTable("deposits", {
   completedAt: timestamp("completed_at"),
 });
 
+export const settings = pgTable("settings", {
+  id: varchar("id").primaryKey().default("default"),
+  winRate: decimal("win_rate", { precision: 5, scale: 2 }).default("20.00"), // Win rate percentage (e.g., 20.00 = 20%)
+  usdtTrc20Address: text("usdt_trc20_address"),
+  usdtErc20Address: text("usdt_erc20_address"),
+  usdtBep20Address: text("usdt_bep20_address"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -89,6 +98,15 @@ export const insertDepositSchema = createInsertSchema(deposits).omit({
   completedAt: true,
 });
 
+export const insertSettingsSchema = createInsertSchema(settings).omit({
+  updatedAt: true,
+});
+
+export const updateSettingsSchema = createInsertSchema(settings).omit({
+  id: true,
+  updatedAt: true,
+}).partial();
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertAsset = z.infer<typeof insertAssetSchema>;
@@ -99,3 +117,6 @@ export type InsertPriceData = z.infer<typeof insertPriceDataSchema>;
 export type PriceData = typeof priceData.$inferSelect;
 export type InsertDeposit = z.infer<typeof insertDepositSchema>;
 export type Deposit = typeof deposits.$inferSelect;
+export type InsertSettings = z.infer<typeof insertSettingsSchema>;
+export type UpdateSettings = z.infer<typeof updateSettingsSchema>;
+export type Settings = typeof settings.$inferSelect;
