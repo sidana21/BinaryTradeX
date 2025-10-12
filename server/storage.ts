@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Asset, type InsertAsset, type Trade, type InsertTrade, type PriceData, type InsertPriceData, type Deposit, type InsertDeposit } from "@shared/schema";
+import { type User, type InsertUser, type Asset, type InsertAsset, type Trade, type InsertTrade, type PriceData, type InsertPriceData, type Deposit, type InsertDeposit, type Settings, type UpdateSettings } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -33,6 +33,10 @@ export interface IStorage {
   createDeposit(deposit: InsertDeposit): Promise<Deposit>;
   updateDepositStatus(id: string, status: string, completedAt?: Date): Promise<Deposit | undefined>;
   getAllDeposits(): Promise<Deposit[]>;
+
+  // Settings
+  getSettings(): Promise<Settings>;
+  updateSettings(settings: UpdateSettings): Promise<Settings>;
 }
 
 export class MemStorage implements IStorage {
@@ -41,6 +45,7 @@ export class MemStorage implements IStorage {
   private trades: Map<string, Trade>;
   private priceData: Map<string, PriceData>;
   private deposits: Map<string, Deposit>;
+  private settings: Settings;
 
   constructor() {
     this.users = new Map();
@@ -48,6 +53,14 @@ export class MemStorage implements IStorage {
     this.trades = new Map();
     this.priceData = new Map();
     this.deposits = new Map();
+    this.settings = {
+      id: "default",
+      winRate: "20.00",
+      usdtTrc20Address: null,
+      usdtErc20Address: null,
+      usdtBep20Address: null,
+      updatedAt: new Date()
+    };
     this.initializeAssets();
   }
 
@@ -289,6 +302,20 @@ export class MemStorage implements IStorage {
       const bTime = b.createdAt?.getTime() ?? 0;
       return bTime - aTime;
     });
+  }
+
+  // Settings
+  async getSettings(): Promise<Settings> {
+    return this.settings;
+  }
+
+  async updateSettings(updateData: UpdateSettings): Promise<Settings> {
+    this.settings = {
+      ...this.settings,
+      ...updateData,
+      updatedAt: new Date()
+    };
+    return this.settings;
   }
 }
 
