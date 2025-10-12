@@ -9,8 +9,8 @@ import { useState } from 'react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
-import { ArrowLeft, Users, DollarSign, TrendingUp, Activity } from 'lucide-react';
-import type { User, Deposit, Trade } from '@shared/schema';
+import { ArrowLeft, Users, DollarSign, TrendingUp, Activity, Settings as SettingsIcon } from 'lucide-react';
+import type { User, Deposit, Trade, Settings } from '@shared/schema';
 
 interface AdminStats {
   users: { total: number };
@@ -23,6 +23,7 @@ export default function AdminPage() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [demoBalance, setDemoBalance] = useState('');
   const [realBalance, setRealBalance] = useState('');
+  const [winRate, setWinRate] = useState('');
 
   const { data: stats } = useQuery<AdminStats>({
     queryKey: ['/api/admin/stats'],
@@ -38,6 +39,10 @@ export default function AdminPage() {
 
   const { data: trades = [] } = useQuery<Trade[]>({
     queryKey: ['/api/admin/trades'],
+  });
+
+  const { data: settings } = useQuery<Settings>({
+    queryKey: ['/api/admin/settings'],
   });
 
   const updateBalanceMutation = useMutation({
@@ -84,9 +89,35 @@ export default function AdminPage() {
     },
   });
 
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: { winRate: string }) => {
+      return apiRequest('PATCH', '/api/admin/settings', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/settings'] });
+      toast({
+        title: 'تم التحديث',
+        description: 'تم تحديث الإعدادات بنجاح',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'خطأ',
+        description: 'حدث خطأ أثناء تحديث الإعدادات',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleUpdateBalance = (userId: string) => {
     if (demoBalance && realBalance) {
       updateBalanceMutation.mutate({ userId, demoBalance, realBalance });
+    }
+  };
+
+  const handleUpdateSettings = () => {
+    if (winRate) {
+      updateSettingsMutation.mutate({ winRate });
     }
   };
 
@@ -178,6 +209,7 @@ export default function AdminPage() {
           <TabsTrigger value="users" data-testid="tab-users">المستخدمون</TabsTrigger>
           <TabsTrigger value="deposits" data-testid="tab-deposits">الودائع</TabsTrigger>
           <TabsTrigger value="trades" data-testid="tab-trades">الصفقات</TabsTrigger>
+          <TabsTrigger value="settings" data-testid="tab-settings">الإعدادات</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="mt-4">
@@ -376,6 +408,96 @@ export default function AdminPage() {
                   ))}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-4">
+          <Card className="bg-[#0f1535] border-[#1a1f3a]">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <SettingsIcon className="h-5 w-5" />
+                إعدادات النظام
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="bg-[#1a1f3a] p-6 rounded-lg space-y-4">
+                <h3 className="text-lg font-semibold text-white mb-4">التحكم في احتمالية الربح</h3>
+                
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-400">
+                    نسبة الربح (%)
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={winRate || settings?.winRate || ''}
+                      onChange={(e) => setWinRate(e.target.value)}
+                      placeholder={settings?.winRate || '20.00'}
+                      className="w-40 bg-[#0f1535] border-[#252b4a] text-white"
+                      data-testid="input-win-rate"
+                    />
+                    <span className="text-gray-400">%</span>
+                    <Button
+                      onClick={handleUpdateSettings}
+                      disabled={updateSettingsMutation.isPending || !winRate}
+                      data-testid="button-save-settings"
+                    >
+                      {updateSettingsMutation.isPending ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    النسبة الحالية: {settings?.winRate || '20.00'}%
+                  </p>
+                </div>
+
+                <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <p className="text-sm text-blue-300">
+                    <strong>ملاحظة:</strong> هذه النسبة تتحكم في احتمالية ربح الصفقات. على سبيل المثال:
+                  </p>
+                  <ul className="text-xs text-blue-200 mt-2 space-y-1 mr-4">
+                    <li>• نسبة 20% = المستخدمون يربحون 20 صفقة من كل 100 صفقة</li>
+                    <li>• نسبة 50% = المستخدمون يربحون 50 صفقة من كل 100 صفقة</li>
+                    <li>• نسبة 80% = المستخدمون يربحون 80 صفقة من كل 100 صفقة</li>
+                  </ul>
+                </div>
+              </div>
+
+              {settings && (
+                <div className="bg-[#1a1f3a] p-6 rounded-lg space-y-4">
+                  <h3 className="text-lg font-semibold text-white mb-4">عناوين المحافظ</h3>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm text-gray-400">USDT TRC20</label>
+                      <p className="text-white font-mono text-sm mt-1 bg-[#0f1535] p-2 rounded">
+                        {settings.usdtTrc20Address || 'غير محدد'}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-400">USDT ERC20</label>
+                      <p className="text-white font-mono text-sm mt-1 bg-[#0f1535] p-2 rounded">
+                        {settings.usdtErc20Address || 'غير محدد'}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-gray-400">USDT BEP20</label>
+                      <p className="text-white font-mono text-sm mt-1 bg-[#0f1535] p-2 rounded">
+                        {settings.usdtBep20Address || 'غير محدد'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-500 mt-4">
+                    آخر تحديث: {settings.updatedAt ? new Date(settings.updatedAt).toLocaleString('ar-SA') : '-'}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
