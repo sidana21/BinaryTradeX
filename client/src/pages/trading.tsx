@@ -165,7 +165,7 @@ export default function TradingPage() {
       </div>
 
       {/* Main Chart Area - Full Width */}
-      <div className="flex-1 overflow-hidden bg-[#0a0e27]">
+      <div className="flex-1 overflow-hidden bg-[#0a0e27] min-h-0">
         <OtcChart 
           ref={chartRef}
           pair={state.selectedAsset ? getPairFromAsset(state.selectedAsset.id) : 'USDJPY'}

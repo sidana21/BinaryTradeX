@@ -258,8 +258,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const completedTrades = trades.filter(t => t.result);
 
   return (
-    <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative">
-      <div ref={containerRef} className="flex-1 w-full" data-testid="otc-chart" />
+    <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative min-h-0">
+      <div ref={containerRef} className="flex-1 w-full min-h-0" data-testid="otc-chart" />
 
       {/* Countdown timer overlay for active trades */}
       {activeTrades.map((t) => {
