@@ -285,20 +285,23 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       }
     }
     
-    // Create horizontal dashed lines for entry (IQ Option style)
+    // Create horizontal dashed lines ONLY for active trades (disappears when trade completes)
     trades.forEach((t) => {
-      try {
-        const entryLine = seriesRef.current?.createPriceLine({
-          price: t.entryPrice,
-          color: t.type === "buy" ? "#26a69a" : "#ef5350",
-          lineWidth: 2,
-          lineStyle: 1, // Dashed line (1 = dashed, 0 = solid)
-          axisLabelVisible: true,
-          title: "",
-        });
-        if (entryLine) priceLineRefsRef.current.push(entryLine);
-      } catch (e) {
-        console.log("Price line error:", e);
+      // Only show line for trades that haven't completed yet
+      if (!t.result) {
+        try {
+          const entryLine = seriesRef.current?.createPriceLine({
+            price: t.entryPrice,
+            color: t.type === "buy" ? "#26a69a" : "#ef5350",
+            lineWidth: 2,
+            lineStyle: 1, // Dashed line (1 = dashed, 0 = solid)
+            axisLabelVisible: true,
+            title: "",
+          });
+          if (entryLine) priceLineRefsRef.current.push(entryLine);
+        } catch (e) {
+          console.log("Price line error:", e);
+        }
       }
     });
     
