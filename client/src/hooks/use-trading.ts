@@ -42,14 +42,18 @@ export function useTrading() {
     queryKey: ['/api/assets'],
   });
 
-  // Fetch open trades
+  // Fetch open trades - refetch more frequently to ensure trades are always visible
   const { data: openTrades = [], isLoading: tradesLoading } = useQuery<Trade[]>({
     queryKey: ['/api/trades/user', state.userId, 'open'],
+    refetchInterval: 2000, // Refetch every 2 seconds to keep trades updated
+    refetchOnWindowFocus: true, // Refetch when user returns to the tab
+    staleTime: 1000, // Consider data stale after 1 second
   });
 
   // Fetch trade history
   const { data: tradeHistory = [] } = useQuery<Trade[]>({
     queryKey: ['/api/trades/user', state.userId],
+    refetchOnWindowFocus: true,
   });
 
   // Execute trade mutation
@@ -73,23 +77,31 @@ export function useTrading() {
       return response.json();
     },
     onSuccess: (trade: Trade) => {
-      // Update balance
+      console.log('Trade executed successfully:', trade);
+      
+      // Update balance - deduct trade amount using functional setState for concurrency safety
       const tradeAmount = parseFloat(trade.amount);
-      if (state.isDemoAccount) {
-        const newBalance = state.demoBalance - tradeAmount;
-        setState(prev => ({
-          ...prev,
-          demoBalance: newBalance
-        }));
-        setStoredBalance('demoBalance', newBalance);
-      } else {
-        const newBalance = state.realBalance - tradeAmount;
-        setState(prev => ({
-          ...prev,
-          realBalance: newBalance
-        }));
-        setStoredBalance('realBalance', newBalance);
-      }
+      const isDemo = trade.isDemo;
+      
+      setState(prev => {
+        if (isDemo) {
+          const newBalance = prev.demoBalance - tradeAmount;
+          console.log('Deducting from demo balance:', prev.demoBalance, '->', newBalance);
+          setStoredBalance('demoBalance', newBalance);
+          return {
+            ...prev,
+            demoBalance: newBalance
+          };
+        } else {
+          const newBalance = prev.realBalance - tradeAmount;
+          console.log('Deducting from real balance:', prev.realBalance, '->', newBalance);
+          setStoredBalance('realBalance', newBalance);
+          return {
+            ...prev,
+            realBalance: newBalance
+          };
+        }
+      });
       
       // Invalidate all trade queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/trades/user', state.userId] });
@@ -114,27 +126,39 @@ export function useTrading() {
       return response.json();
     },
     onSuccess: (trade: Trade) => {
-      // Update balance if trade won - use trade.isDemo instead of state.isDemoAccount
+      console.log('Trade closed successfully:', trade);
+      console.log('Trade status:', trade.status, 'Payout:', trade.payout, 'IsDemo:', trade.isDemo);
+      
+      // Update balance based on trade result using functional setState for concurrency safety
       if (trade.status === 'won' && trade.payout) {
         const payout = parseFloat(trade.payout);
-        if (trade.isDemo) {
-          const newBalance = state.demoBalance + payout;
-          setState(prev => ({
-            ...prev,
-            demoBalance: newBalance
-          }));
-          setStoredBalance('demoBalance', newBalance);
-        } else {
-          const newBalance = state.realBalance + payout;
-          setState(prev => ({
-            ...prev,
-            realBalance: newBalance
-          }));
-          setStoredBalance('realBalance', newBalance);
-        }
+        const isDemo = trade.isDemo;
+        console.log('Trade won! Payout:', payout);
+        
+        setState(prev => {
+          if (isDemo) {
+            const newBalance = prev.demoBalance + payout;
+            console.log('Updating demo balance from', prev.demoBalance, 'to', newBalance);
+            setStoredBalance('demoBalance', newBalance);
+            return {
+              ...prev,
+              demoBalance: newBalance
+            };
+          } else {
+            const newBalance = prev.realBalance + payout;
+            console.log('Updating real balance from', prev.realBalance, 'to', newBalance);
+            setStoredBalance('realBalance', newBalance);
+            return {
+              ...prev,
+              realBalance: newBalance
+            };
+          }
+        });
+      } else if (trade.status === 'lost') {
+        console.log('Trade lost - no balance update needed (amount already deducted)');
       }
       
-      // Invalidate all trade queries to refresh data
+      // Force invalidate all trade queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/trades/user', state.userId] });
       queryClient.invalidateQueries({ queryKey: ['/api/trades/user', state.userId, 'open'] });
     },
