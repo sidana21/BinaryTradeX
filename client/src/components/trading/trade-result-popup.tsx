@@ -7,6 +7,22 @@ interface TradeResultPopupProps {
   onClose: () => void;
 }
 
+// Singleton AudioContext to prevent context leak
+let globalAudioContext: AudioContext | null = null;
+
+const getAudioContext = () => {
+  if (!globalAudioContext) {
+    globalAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  
+  // Resume if suspended (required for some browsers)
+  if (globalAudioContext.state === 'suspended') {
+    globalAudioContext.resume();
+  }
+  
+  return globalAudioContext;
+};
+
 export function TradeResultPopup({ result, amount, onClose }: TradeResultPopupProps) {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -14,14 +30,41 @@ export function TradeResultPopup({ result, amount, onClose }: TradeResultPopupPr
     if (result) {
       setIsVisible(true);
       
-      const winSound = new Audio('/sounds/win.mp3');
-      const lossSound = new Audio('/sounds/loss.mp3');
+      // Create sound using Web Audio API with singleton context
+      const playSound = (isWin: boolean) => {
+        try {
+          const audioContext = getAudioContext();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          if (isWin) {
+            // Win sound: ascending cheerful tones
+            oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+            oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+            oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+          } else {
+            // Loss sound: descending somber tones
+            oscillator.frequency.setValueAtTime(392, audioContext.currentTime); // G4
+            oscillator.frequency.setValueAtTime(329.63, audioContext.currentTime + 0.15); // E4
+            oscillator.frequency.setValueAtTime(261.63, audioContext.currentTime + 0.3); // C4
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.6);
+          }
+          
+          oscillator.type = 'sine';
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + (isWin ? 0.5 : 0.6));
+        } catch (error) {
+          console.error('Audio playback failed:', error);
+        }
+      };
       
-      if (result === 'win') {
-        winSound.play().catch(() => {});
-      } else {
-        lossSound.play().catch(() => {});
-      }
+      playSound(result === 'win');
 
       const timer = setTimeout(() => {
         setIsVisible(false);

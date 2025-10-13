@@ -1,2 +1,0 @@
-# Loss sound - will be replaced with actual audio file
-# For now, the browser will handle the missing file gracefully

@@ -62,6 +62,23 @@ export class MemStorage implements IStorage {
       updatedAt: new Date()
     };
     this.initializeAssets();
+    this.initializeDemoUser();
+  }
+
+  private initializeDemoUser() {
+    // Create default demo user with secure random password
+    // Note: Password is not used for authentication in current implementation
+    const randomPassword = randomUUID();
+    const demoUser: User = {
+      id: 'demo_user',
+      username: 'demo',
+      password: randomPassword,
+      demoBalance: '10000.00',
+      realBalance: '0.00',
+      isAdmin: false,
+      createdAt: new Date()
+    };
+    this.users.set('demo_user', demoUser);
   }
 
   private initializeAssets() {

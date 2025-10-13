@@ -69,8 +69,7 @@ def websocket():
         
         try:
             import websocket
-            node_ws = websocket.WebSocket()
-            node_ws.connect("ws://localhost:5001/ws")
+            node_ws = websocket.create_connection("ws://localhost:5001/ws")
             
             def forward_to_node():
                 while True:
@@ -106,7 +105,7 @@ def websocket():
             except:
                 pass
     
-    return Response(status=400)
+    return Response(status=426, headers={'Upgrade': 'websocket'})
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
