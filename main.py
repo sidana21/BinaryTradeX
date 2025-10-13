@@ -39,10 +39,11 @@ def start_node_server():
             bufsize=1
         )
         
-        for line in node_process.stdout:
-            print(f"[Node.js] {line.strip()}")
-            if "serving on port" in line.lower():
-                node_ready = True
+        if node_process.stdout:
+            for line in node_process.stdout:
+                print(f"[Node.js] {line.strip()}")
+                if "serving on port" in line.lower():
+                    node_ready = True
                 
     except Exception as e:
         print(f"❌ Error starting Node.js: {e}")
@@ -66,6 +67,7 @@ def websocket():
     """Handle WebSocket connections by proxying to Node.js WebSocket server"""
     if request.environ.get('wsgi.websocket'):
         ws = request.environ['wsgi.websocket']
+        node_ws = None
         
         try:
             import websocket
@@ -75,7 +77,7 @@ def websocket():
                 while True:
                     try:
                         message = ws.receive()
-                        if message:
+                        if message and node_ws:
                             node_ws.send(message)
                     except:
                         break
@@ -83,9 +85,10 @@ def websocket():
             def forward_from_node():
                 while True:
                     try:
-                        message = node_ws.recv()
-                        if message:
-                            ws.send(message)
+                        if node_ws:
+                            message = node_ws.recv()
+                            if message:
+                                ws.send(message)
                     except:
                         break
             
@@ -101,7 +104,8 @@ def websocket():
             print(f"WebSocket error: {e}")
         finally:
             try:
-                node_ws.close()
+                if node_ws:
+                    node_ws.close()
             except:
                 pass
     
