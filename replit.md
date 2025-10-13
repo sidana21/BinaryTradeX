@@ -4,12 +4,15 @@
 
 This is a binary options trading platform built with a React frontend and Express backend. The application allows users to trade on various financial assets (forex, crypto, commodities, indices) with real-time price updates via WebSocket. Users can execute CALL/PUT trades with configurable expiry times, manage demo and real account balances, and track their trading history.
 
-**Recent Updates (Oct 2025)**:
-- Implemented Flask proxy layer (main.py) to bridge Node.js backend with WebSocket support on port 5000
+**Recent Updates (Oct 13, 2025)**:
+- Successfully migrated from Replit Agent to Replit environment
+- Simplified deployment by running Node.js/Express directly on port 5000 (removed Flask proxy layer)
+- WebSocket real-time price updates working correctly with candlestick chart display
+- Installed all Node.js dependencies (npm packages) for full functionality
+- Configured deployment settings for production-ready autoscale deployment
 - Added Web Audio API notification system with singleton AudioContext for win/loss trade results
 - Auto-initialization of demo user with secure random password for seamless demo trading
 - Fixed balance update logic to properly reflect profits from winning trades
-- Fixed deposit functionality by ensuring demo user exists in storage
 
 ## User Preferences
 

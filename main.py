@@ -89,16 +89,17 @@ def websocket():
                         break
             
             def forward_from_node():
+                message_count = 0
                 while True:
                     try:
                         if node_ws:
                             message = node_ws.recv()
                             if message:
                                 ws.send(message)
-                                # Print only first message to avoid spam
-                                if not hasattr(forward_from_node, 'first_printed'):
-                                    print(f"Flask WebSocket: Forwarded from Node.js: {message[:100]}")
-                                    forward_from_node.first_printed = True
+                                message_count += 1
+                                # Print first 5 messages to see the data flow
+                                if message_count <= 5:
+                                    print(f"Flask WebSocket [msg {message_count}]: From Node.js: {message[:200]}")
                     except Exception as e:
                         print(f"Flask WebSocket: Error receiving from Node.js: {e}")
                         break
