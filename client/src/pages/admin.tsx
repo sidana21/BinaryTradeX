@@ -30,14 +30,20 @@ export default function AdminPage() {
 
   const { data: stats } = useQuery<AdminStats>({
     queryKey: ['/api/admin/stats'],
+    refetchInterval: 3000, // Auto-refresh every 3 seconds
+    refetchOnWindowFocus: true,
   });
 
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
+    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    refetchOnWindowFocus: true,
   });
 
   const { data: deposits = [] } = useQuery<Deposit[]>({
     queryKey: ['/api/admin/deposits'],
+    refetchInterval: 3000, // Auto-refresh every 3 seconds
+    refetchOnWindowFocus: true,
   });
 
   const { data: trades = [] } = useQuery<Trade[]>({
@@ -220,7 +226,14 @@ export default function AdminPage() {
       <Tabs defaultValue="users" className="w-full">
         <TabsList className="bg-[#0f1535] border-[#1a1f3a]">
           <TabsTrigger value="users" data-testid="tab-users">المستخدمون</TabsTrigger>
-          <TabsTrigger value="deposits" data-testid="tab-deposits">الودائع</TabsTrigger>
+          <TabsTrigger value="deposits" data-testid="tab-deposits" className="relative">
+            الودائع
+            {stats && stats.deposits.pending > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+                {stats.deposits.pending}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="trades" data-testid="tab-trades">الصفقات</TabsTrigger>
           <TabsTrigger value="settings" data-testid="tab-settings">الإعدادات</TabsTrigger>
         </TabsList>

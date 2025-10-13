@@ -70,16 +70,22 @@ def websocket():
         node_ws = None
         
         try:
-            import websocket
-            node_ws = websocket.create_connection("ws://localhost:5001/ws")
+            import websocket as ws_client
+            print("Flask WebSocket: Client connected, connecting to Node.js...")
+            node_ws = ws_client.create_connection("ws://localhost:5001/ws")
+            print("Flask WebSocket: Connected to Node.js successfully")
             
             def forward_to_node():
                 while True:
                     try:
                         message = ws.receive()
-                        if message and node_ws:
+                        if message is None:
+                            break
+                        if node_ws:
                             node_ws.send(message)
-                    except:
+                            print(f"Flask WebSocket: Forwarded to Node.js: {message[:100]}")
+                    except Exception as e:
+                        print(f"Flask WebSocket: Error forwarding to Node.js: {e}")
                         break
             
             def forward_from_node():
@@ -89,7 +95,12 @@ def websocket():
                             message = node_ws.recv()
                             if message:
                                 ws.send(message)
-                    except:
+                                # Print only first message to avoid spam
+                                if not hasattr(forward_from_node, 'first_printed'):
+                                    print(f"Flask WebSocket: Forwarded from Node.js: {message[:100]}")
+                                    forward_from_node.first_printed = True
+                    except Exception as e:
+                        print(f"Flask WebSocket: Error receiving from Node.js: {e}")
                         break
             
             t1 = threading.Thread(target=forward_to_node, daemon=True)
@@ -99,15 +110,20 @@ def websocket():
             
             t1.join()
             t2.join()
+            print("Flask WebSocket: Connection closed")
             
         except Exception as e:
-            print(f"WebSocket error: {e}")
+            print(f"Flask WebSocket error: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             try:
                 if node_ws:
                     node_ws.close()
             except:
                 pass
+    else:
+        print("Flask WebSocket: No WebSocket in request environ")
     
     return Response(status=426, headers={'Upgrade': 'websocket'})
 
