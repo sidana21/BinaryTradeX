@@ -131,20 +131,67 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     const chart = createChart(containerRef.current, {
       width: containerWidth,
       height: containerHeight,
-      layout: { background: { color: "#0c1e3e" }, textColor: "white", attributionLogo: false },
-      grid: { vertLines: { color: "#334" }, horzLines: { color: "#334" } },
-      timeScale: { timeVisible: true, secondsVisible: false },
+      layout: { 
+        background: { color: "#0a0e1a" }, 
+        textColor: "#8b92a7", 
+        attributionLogo: false 
+      },
+      grid: { 
+        vertLines: { color: "#1a2033", style: 1 }, 
+        horzLines: { color: "#1a2033", style: 1 } 
+      },
+      timeScale: { 
+        timeVisible: true, 
+        secondsVisible: false,
+        borderColor: "#2a3447",
+        rightOffset: 5,
+        barSpacing: 8,
+        minBarSpacing: 4,
+      },
+      rightPriceScale: {
+        borderColor: "#2a3447",
+        scaleMargins: {
+          top: 0.1,
+          bottom: 0.1,
+        },
+      },
+      crosshair: {
+        mode: 1,
+        vertLine: {
+          color: "#6366f1",
+          width: 1,
+          style: 1,
+          labelBackgroundColor: "#6366f1",
+        },
+        horzLine: {
+          color: "#6366f1",
+          width: 1,
+          style: 1,
+          labelBackgroundColor: "#6366f1",
+        },
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: true,
+      },
+      handleScale: {
+        axisPressedMouseMove: true,
+        mouseWheel: true,
+        pinch: true,
+      },
     });
     chartRef.current = chart;
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#00ff88',
-      downColor: '#ef5350',
+      upColor: '#22c55e',
+      downColor: '#ef4444',
       borderVisible: true,
-      borderUpColor: '#00ff88',
-      borderDownColor: '#ef5350',
-      wickUpColor: '#00ff88',
-      wickDownColor: '#ef5350',
+      borderUpColor: '#22c55e',
+      borderDownColor: '#ef4444',
+      wickUpColor: '#22c55e',
+      wickDownColor: '#ef4444',
     });
     seriesRef.current = candleSeries;
     
@@ -490,7 +537,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         </select>
       </div>
 
-      <div className="flex-1 w-full min-h-[300px] relative">
+      <div className="flex-1 w-full min-h-[350px] relative">
         <div ref={containerRef} className="absolute inset-0" data-testid="otc-chart" />
         <canvas 
           ref={canvasRef} 
