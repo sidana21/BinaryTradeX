@@ -305,6 +305,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Trade not found" });
       }
       
+      // Get user to update balance
+      const user = await storage.getUser(trade.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       // Determine outcome based on shouldWin (enforced 20% win rate)
       let status: string;
       let payout: string;
@@ -320,6 +326,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedTrade = await storage.updateTrade(req.params.id, closePrice, status, payout);
+      
+      // Update user balance if trade won
+      if (status === 'won' && payout !== '0') {
+        const payoutAmount = parseFloat(payout);
+        if (trade.isDemo) {
+          const newDemoBalance = (parseFloat(user.demoBalance || "0") + payoutAmount).toFixed(2);
+          await storage.updateUserBalance(trade.userId, newDemoBalance, user.realBalance || "0.00");
+        } else {
+          const newRealBalance = (parseFloat(user.realBalance || "0") + payoutAmount).toFixed(2);
+          await storage.updateUserBalance(trade.userId, user.demoBalance || "10000.00", newRealBalance);
+        }
+      }
       
       // Remove from active trades
       activeTrades.delete(req.params.id);
@@ -352,6 +370,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(user);
     } catch (error) {
       res.status(500).json({ message: "Failed to create demo user" });
+    }
+  });
+
+  // Get user by ID
+  app.get("/api/users/:userId", async (req, res) => {
+    try {
+      const user = await storage.getUser(req.params.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 

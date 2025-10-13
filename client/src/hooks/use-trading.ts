@@ -37,6 +37,30 @@ export function useTrading() {
     userId: 'demo_user', // In a real app, this would come from authentication
   });
 
+  // Fetch user data to get real balances from database
+  const { data: userData } = useQuery<{ demoBalance: string; realBalance: string }>({
+    queryKey: ['/api/users', state.userId],
+    refetchInterval: 5000, // Refetch every 5 seconds to keep balance updated
+    refetchOnWindowFocus: true,
+  });
+
+  // Update balances when user data is fetched
+  useEffect(() => {
+    if (userData) {
+      const newDemoBalance = parseFloat(userData.demoBalance || '10000');
+      const newRealBalance = parseFloat(userData.realBalance || '0');
+      
+      setState(prev => ({
+        ...prev,
+        demoBalance: newDemoBalance,
+        realBalance: newRealBalance,
+      }));
+      
+      setStoredBalance('demoBalance', newDemoBalance);
+      setStoredBalance('realBalance', newRealBalance);
+    }
+  }, [userData]);
+
   // Fetch all assets
   const { data: assets = [], isLoading: assetsLoading } = useQuery<Asset[]>({
     queryKey: ['/api/assets'],
