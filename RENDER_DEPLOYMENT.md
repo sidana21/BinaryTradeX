@@ -16,6 +16,15 @@
 
 الحل: نقل جميع حزم البناء الضرورية إلى `dependencies` في `package.json`
 
+### المشكلة الثالثة (تم حلها ✅):
+الخطأ: `error: relation "assets" does not exist, code: '42P01'`
+
+السبب: قاعدة البيانات متصلة بشكل صحيح، لكن الجداول (tables) لم يتم إنشاؤها لأن الـ migrations لم تُنفذ أثناء النشر
+
+الحل: 
+1. إضافة `npm run db:push` إلى `buildCommand` في `render.yaml`
+2. نقل `drizzle-kit` من `devDependencies` إلى `dependencies` حتى يكون متاحًا أثناء النشر
+
 ---
 
 ## ✅ الحل النهائي (تم إصلاحه!)
@@ -37,8 +46,10 @@ git push
 
 **Build Command:**
 ```
-npm install && npm run build
+npm install && npm run db:push && npm run build
 ```
+
+**ملاحظة مهمة:** يجب إضافة `npm run db:push` قبل `npm run build` لإنشاء جداول قاعدة البيانات تلقائيًا!
 
 **Start Command:**
 ```
