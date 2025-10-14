@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertTradeSchema, insertDepositSchema, updateSettingsSchema } from "@shared/schema";
+import { insertTradeSchema, insertDepositSchema, updateSettingsSchema, type Trade } from "@shared/schema";
 import { z } from "zod";
 import axios from "axios";
 
@@ -22,6 +22,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     shouldWin: boolean; // Pre-determined win/loss (20% win rate)
   }
   const activeTrades = new Map<string, ActiveTrade>();
+
+  // Load open trades from database on startup
+  async function loadOpenTrades() {
+    try {
+      const allTrades = await storage.getAllTrades();
+      const openTrades = allTrades.filter(t => t.status === 'open');
+      
+      openTrades.forEach(trade => {
+        const expiryTime = new Date(trade.expiryTime).getTime();
+        const createdAt = new Date(trade.createdAt || Date.now()).getTime();
+        
+        // Only add if not expired
+        if (expiryTime > Date.now()) {
+          activeTrades.set(trade.id, {
+            id: trade.id,
+            assetId: trade.assetId,
+            type: trade.type as 'CALL' | 'PUT',
+            openPrice: parseFloat(trade.openPrice),
+            openTime: createdAt,
+            expiryTime: expiryTime,
+            shouldWin: trade.shouldWin || false,
+          });
+          console.log(`Loaded open trade: ${trade.id} for ${trade.assetId}`);
+        }
+      });
+      
+      console.log(`Loaded ${activeTrades.size} open trades from database`);
+    } catch (error) {
+      console.error('Error loading open trades:', error);
+    }
+  }
+  
+  // Load open trades immediately
+  await loadOpenTrades();
 
   // Binomo API endpoints - Direct implementation (no external service needed)
   const AUTHTOKEN = process.env.BINOMO_AUTHTOKEN || '';

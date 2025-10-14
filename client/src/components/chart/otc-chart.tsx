@@ -328,12 +328,13 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   useEffect(() => {
     console.log('Update interval changed to:', updateInterval);
     
-    // Reset candles on interval change
+    // Reset only current candle, keep historical data from database
     currentCandleRef.current = null;
     candleStartTimeRef.current = 0;
-    candleBufferRef.current = [];
-    if (seriesRef.current) {
-      seriesRef.current.setData([]);
+    // Don't clear candleBufferRef.current - keep historical data
+    // Just refresh the chart with existing data
+    if (seriesRef.current && candleBufferRef.current.length > 0) {
+      seriesRef.current.setData(candleBufferRef.current);
     }
   }, [updateInterval]);
 
