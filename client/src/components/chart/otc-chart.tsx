@@ -57,40 +57,6 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     candleStartTime: number;
   }>>({});
 
-  // Helper functions to save/load candles from localStorage
-  const saveCandlesToStorage = (pairName: string, buffer: CandlestickData[], currentCandle: CandlestickData | null, startTime: number) => {
-    try {
-      const data = {
-        buffer,
-        currentCandle,
-        candleStartTime: startTime,
-        timestamp: Date.now()
-      };
-      localStorage.setItem(`candles_${pairName}_${updateInterval}`, JSON.stringify(data));
-    } catch (e) {
-      console.error('Error saving candles:', e);
-    }
-  };
-
-  const loadCandlesFromStorage = (pairName: string) => {
-    try {
-      const stored = localStorage.getItem(`candles_${pairName}_${updateInterval}`);
-      if (stored) {
-        const data = JSON.parse(stored);
-        // Only load if data is less than 1 hour old
-        if (Date.now() - data.timestamp < 3600000) {
-          return {
-            buffer: data.buffer || [],
-            currentCandle: data.currentCandle || null,
-            candleStartTime: data.candleStartTime || 0
-          };
-        }
-      }
-    } catch (e) {
-      console.error('Error loading candles:', e);
-    }
-    return null;
-  };
 
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => lastPrice,
@@ -263,9 +229,6 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             console.log('Updating chart with', allCandles.length, 'candles, current candle:', currentCandleRef.current);
             seriesRef.current?.setData(allCandles);
             
-            // Save candles to localStorage
-            saveCandlesToStorage(tick.pair, candleBufferRef.current, currentCandleRef.current, candleStartTimeRef.current);
-            
             setLastPrice(price);
             onPriceUpdate?.(price);
 
@@ -310,70 +273,32 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     };
   }, []);
 
-  // Update current pair ref and load saved data when pair changes
+  // Update current pair ref and reset candles when pair changes
   useEffect(() => {
     console.log('Chart pair changed to:', pair);
     currentPairRef.current = pair;
     
-    // Try to load saved candles for this pair
-    const savedData = loadCandlesFromStorage(pair);
-    if (savedData) {
-      console.log('Loaded', savedData.buffer.length, 'saved candles for', pair);
-      candleBufferRef.current = savedData.buffer;
-      currentCandleRef.current = savedData.currentCandle;
-      candleStartTimeRef.current = savedData.candleStartTime;
-      
-      // Update chart with saved data
-      if (seriesRef.current) {
-        const allCandles = currentCandleRef.current 
-          ? [...candleBufferRef.current, currentCandleRef.current]
-          : candleBufferRef.current;
-        seriesRef.current.setData(allCandles);
-        
-        // Set last price from last candle if available
-        if (allCandles.length > 0) {
-          const lastCandle = allCandles[allCandles.length - 1];
-          setLastPrice(lastCandle.close);
-        }
-      }
-    } else {
-      // No saved data, start fresh
-      candleBufferRef.current = [];
-      currentCandleRef.current = null;
-      candleStartTimeRef.current = 0;
-      if (seriesRef.current) {
-        seriesRef.current.setData([]);
-        setLastPrice(0);
-      }
+    // Start fresh with new pair
+    candleBufferRef.current = [];
+    currentCandleRef.current = null;
+    candleStartTimeRef.current = 0;
+    if (seriesRef.current) {
+      seriesRef.current.setData([]);
+      setLastPrice(0);
     }
     setTrades([]);
   }, [pair]);
 
-  // Reset current candle and load saved data when update interval changes
+  // Reset current candle when update interval changes
   useEffect(() => {
     console.log('Update interval changed to:', updateInterval);
     
-    // Try to load saved candles for current pair with new interval
-    const savedData = loadCandlesFromStorage(currentPairRef.current);
-    if (savedData) {
-      console.log('Loaded', savedData.buffer.length, 'saved candles for interval', updateInterval);
-      candleBufferRef.current = savedData.buffer;
-      currentCandleRef.current = savedData.currentCandle;
-      candleStartTimeRef.current = savedData.candleStartTime;
-      
-      if (seriesRef.current) {
-        const allCandles = currentCandleRef.current 
-          ? [...candleBufferRef.current, currentCandleRef.current]
-          : candleBufferRef.current;
-        seriesRef.current.setData(allCandles);
-      }
-    } else {
-      currentCandleRef.current = null;
-      candleStartTimeRef.current = 0;
-      candleBufferRef.current = [];
-      if (seriesRef.current) {
-        seriesRef.current.setData([]);
-      }
+    // Reset candles on interval change
+    currentCandleRef.current = null;
+    candleStartTimeRef.current = 0;
+    candleBufferRef.current = [];
+    if (seriesRef.current) {
+      seriesRef.current.setData([]);
     }
   }, [updateInterval]);
 

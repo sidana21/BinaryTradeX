@@ -31,16 +31,16 @@ export function TradesPanel({ openTrades, tradeHistory, assets, onCloseTrade, is
   };
 
   const calculatePnL = (trade: Trade) => {
-    if (!trade.closePrice || !trade.openPrice) return 0;
-    
-    const openPrice = parseFloat(trade.openPrice);
-    const closePrice = parseFloat(trade.closePrice);
     const amount = parseFloat(trade.amount);
+    const payout = trade.payout ? parseFloat(trade.payout) : 0;
     
-    const isWin = (trade.type === 'CALL' && closePrice > openPrice) ||
-                  (trade.type === 'PUT' && closePrice < openPrice);
+    if (trade.status === 'won') {
+      return payout - amount;
+    } else if (trade.status === 'lost') {
+      return -amount;
+    }
     
-    return isWin ? amount * 0.82 : -amount; // 82% payout rate
+    return 0;
   };
 
   const tabs = [
