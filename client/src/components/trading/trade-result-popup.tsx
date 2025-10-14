@@ -28,6 +28,7 @@ export function TradeResultPopup({ result, amount, onClose }: TradeResultPopupPr
 
   useEffect(() => {
     if (result) {
+      console.log('🎉 TradeResultPopup - Showing result:', { result, amount });
       setIsVisible(true);
       
       // Create sound using Web Audio API with singleton context

@@ -820,8 +820,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
           client.send(message);
         }
       });
+      
+      // Update current candle for this pair
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (!currentCandles[pair]) {
+        currentCandles[pair] = {
+          pair,
+          time: currentTime,
+          open: priceUpdate.price,
+          high: priceUpdate.price,
+          low: priceUpdate.price,
+          close: priceUpdate.price,
+          startTime: currentTime
+        };
+      } else {
+        currentCandles[pair].close = priceUpdate.price;
+        currentCandles[pair].high = Math.max(currentCandles[pair].high, priceUpdate.price);
+        currentCandles[pair].low = Math.min(currentCandles[pair].low, priceUpdate.price);
+      }
     });
   }, 1000); // Update every second for smooth price movement
+
+  // Save candles to database every 15 seconds
+  setInterval(async () => {
+    const assets = await storage.getAllAssets();
+    const currentTime = Math.floor(Date.now() / 1000);
+    
+    for (const asset of assets) {
+      const pair = asset.id.replace('_OTC', '');
+      const candle = currentCandles[pair];
+      
+      if (candle) {
+        try {
+          // Save candle to database
+          await storage.addPriceData({
+            assetId: asset.id,
+            timestamp: new Date(candle.startTime * 1000),
+            open: candle.open.toString(),
+            high: candle.high.toString(),
+            low: candle.low.toString(),
+            close: candle.close.toString(),
+            volume: "0"
+          });
+          
+          // Start new candle
+          currentCandles[pair] = {
+            pair,
+            time: currentTime,
+            open: candle.close,
+            high: candle.close,
+            low: candle.close,
+            close: candle.close,
+            startTime: currentTime
+          };
+        } catch (error) {
+          console.error(`Error saving candle for ${pair}:`, error);
+        }
+      }
+    }
+  }, 15000); // Save every 15 seconds
 
   // Trade expiry checker
   const checkTradeExpiry = () => {

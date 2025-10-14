@@ -149,37 +149,30 @@ export function useTrading() {
       });
       return response.json();
     },
-    onSuccess: (trade: Trade) => {
+    onSuccess: async (trade: Trade) => {
       console.log('Trade closed successfully:', trade);
       console.log('Trade status:', trade.status, 'Payout:', trade.payout, 'IsDemo:', trade.isDemo);
       
-      // Update balance based on trade result using functional setState for concurrency safety
-      if (trade.status === 'won' && trade.payout) {
-        const payout = parseFloat(trade.payout);
-        const isDemo = trade.isDemo;
-        console.log('Trade won! Payout:', payout);
+      // Invalidate user query to fetch updated balance from server
+      await queryClient.invalidateQueries({ queryKey: ['/api/users', state.userId] });
+      
+      // Fetch fresh user data from server
+      const userResponse = await fetch(`/api/users/${state.userId}`);
+      if (userResponse.ok) {
+        const updatedUser = await userResponse.json();
+        console.log('Updated user balance from server:', updatedUser);
         
-        setState(prev => {
-          if (isDemo) {
-            const newBalance = prev.demoBalance + payout;
-            console.log('Updating demo balance from', prev.demoBalance, 'to', newBalance);
-            setStoredBalance('demoBalance', newBalance);
-            return {
-              ...prev,
-              demoBalance: newBalance
-            };
-          } else {
-            const newBalance = prev.realBalance + payout;
-            console.log('Updating real balance from', prev.realBalance, 'to', newBalance);
-            setStoredBalance('realBalance', newBalance);
-            return {
-              ...prev,
-              realBalance: newBalance
-            };
-          }
-        });
-      } else if (trade.status === 'lost') {
-        console.log('Trade lost - no balance update needed (amount already deducted)');
+        // Update state and localStorage with server data
+        setState(prev => ({
+          ...prev,
+          demoBalance: parseFloat(updatedUser.demoBalance || "10000.00"),
+          realBalance: parseFloat(updatedUser.realBalance || "0.00")
+        }));
+        
+        setStoredBalance('demoBalance', parseFloat(updatedUser.demoBalance || "10000.00"));
+        setStoredBalance('realBalance', parseFloat(updatedUser.realBalance || "0.00"));
+        
+        console.log('Balance updated from server - Demo:', updatedUser.demoBalance, 'Real:', updatedUser.realBalance);
       }
       
       // Force invalidate all trade queries to refresh data

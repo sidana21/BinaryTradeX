@@ -26,6 +26,14 @@ export function useTradeResult(trades: Trade[]) {
       const payout = latestTrade.payout ? parseFloat(latestTrade.payout) : 0;
       const resultAmount = isWin ? payout - amount : -amount;
 
+      console.log('🎯 Trade Result Detected:', {
+        status: latestTrade.status,
+        isWin,
+        amount,
+        payout,
+        resultAmount
+      });
+
       setTradeResult({
         result: isWin ? 'win' : 'loss',
         amount: resultAmount
