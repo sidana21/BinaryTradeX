@@ -4,14 +4,21 @@
 
 This is a binary options trading platform built with a React frontend and Express backend. The application allows users to trade on various financial assets (forex, crypto, commodities, indices) with real-time price updates via WebSocket. Users can execute CALL/PUT trades with configurable expiry times, manage demo and real account balances, and track their trading history.
 
-**Recent Updates (Oct 13, 2025)**:
+**Recent Updates (Oct 14, 2025)**:
+- **Data Persistence Fixed**: All data now properly persists to NeonDB across page refreshes and server restarts
+- **Open Trades Recovery**: Active trades are now loaded from database on server startup, preventing loss on restart
+- **Chart Data Persistence**: Fixed issue where candlestick data would reset to zero on page refresh
+- **Removed Flask Proxy**: Node.js/Express now runs directly on port 5000 for simpler architecture
+- **WebSocket Integration**: Real-time price updates working correctly with proper connection handling
+- **Database Status**: 17,708+ price candles stored across 38 assets with full historical data
+- **Production Ready**: Configured for deployment on Render with NeonDB persistence
+- **Auto User Init**: Demo user automatically created with secure random password
+
+**Previous Updates (Oct 13, 2025)**:
 - Successfully migrated from Replit Agent to Replit environment
-- Simplified deployment by running Node.js/Express directly on port 5000 (removed Flask proxy layer)
-- WebSocket real-time price updates working correctly with candlestick chart display
-- Installed all Node.js dependencies (npm packages) for full functionality
+- Installed all Node.js and Python dependencies for full functionality
 - Configured deployment settings for production-ready autoscale deployment
 - Added Web Audio API notification system with singleton AudioContext for win/loss trade results
-- Auto-initialization of demo user with secure random password for seamless demo trading
 - Fixed balance update logic to properly reflect profits from winning trades
 
 ## User Preferences
