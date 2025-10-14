@@ -60,6 +60,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/price-data/:assetId", async (req, res) => {
+    try {
+      const { assetId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 100;
+      
+      const priceData = await storage.getPriceData(assetId, limit);
+      
+      // Convert to candle format
+      const candles = priceData.reverse().map(pd => ({
+        time: Math.floor(new Date(pd.timestamp).getTime() / 1000),
+        open: parseFloat(pd.open),
+        high: parseFloat(pd.high),
+        low: parseFloat(pd.low),
+        close: parseFloat(pd.close),
+      }));
+      
+      res.json(candles);
+    } catch (error) {
+      console.error('Error fetching price data:', error);
+      res.status(500).json({ message: "Failed to fetch price data" });
+    }
+  });
+
   app.get("/api/binomo/candles/:assetId/:timeframe?", async (req, res) => {
     const { assetId, timeframe } = req.params;
     const count = parseInt(req.query.count as string) || 100;

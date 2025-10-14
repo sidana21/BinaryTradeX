@@ -273,19 +273,54 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     };
   }, []);
 
-  // Update current pair ref and reset candles when pair changes
+  // Load candles from database when pair changes
   useEffect(() => {
     console.log('Chart pair changed to:', pair);
     currentPairRef.current = pair;
     
-    // Start fresh with new pair
-    candleBufferRef.current = [];
-    currentCandleRef.current = null;
-    candleStartTimeRef.current = 0;
-    if (seriesRef.current) {
-      seriesRef.current.setData([]);
-      setLastPrice(0);
-    }
+    // Load candles from database for this asset
+    const loadCandles = async () => {
+      try {
+        const response = await fetch(`/api/price-data/${pair}_OTC?limit=100`);
+        if (response.ok) {
+          const candles = await response.json();
+          console.log('Loaded', candles.length, 'candles from database for', pair);
+          
+          if (candles.length > 0) {
+            candleBufferRef.current = candles;
+            currentCandleRef.current = null;
+            candleStartTimeRef.current = 0;
+            
+            if (seriesRef.current) {
+              seriesRef.current.setData(candles);
+              const lastCandle = candles[candles.length - 1];
+              setLastPrice(lastCandle.close);
+            }
+          } else {
+            // No data in database, start fresh
+            candleBufferRef.current = [];
+            currentCandleRef.current = null;
+            candleStartTimeRef.current = 0;
+            if (seriesRef.current) {
+              seriesRef.current.setData([]);
+              setLastPrice(0);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading candles from database:', error);
+        // On error, start fresh
+        candleBufferRef.current = [];
+        currentCandleRef.current = null;
+        candleStartTimeRef.current = 0;
+        if (seriesRef.current) {
+          seriesRef.current.setData([]);
+          setLastPrice(0);
+        }
+      }
+    };
+    
+    loadCandles();
     setTrades([]);
   }, [pair]);
 
