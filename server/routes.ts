@@ -880,10 +880,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 15000); // Save every 15 seconds
 
+  // Track closed trades to avoid duplicate closures
+  const closedTrades = new Set<string>();
+  
   // Trade expiry checker
-  const checkTradeExpiry = () => {
-    // This would normally check all open trades and close expired ones
-    // Implementation depends on how you want to handle trade expiry
+  const checkTradeExpiry = async () => {
+    try {
+      const now = new Date();
+      
+      // Get all open trades from database
+      const allOpenTrades = await storage.getAllTrades();
+      const openTrades = allOpenTrades.filter((t: Trade) => t.status === 'open');
+      
+      for (const trade of openTrades) {
+        // Skip if already processed
+        if (closedTrades.has(trade.id)) {
+          continue;
+        }
+        
+        const expiryTime = new Date(trade.expiryTime).getTime();
+        
+        if (now.getTime() >= expiryTime) {
+          // Mark as closed to prevent duplicate processing
+          closedTrades.add(trade.id);
+          
+          const user = await storage.getUser(trade.userId);
+          if (!user) {
+            continue;
+          }
+          
+          const asset = await storage.getAsset(trade.assetId);
+          const closePrice = asset?.currentPrice || trade.openPrice;
+          
+          let status: string;
+          let payout: string;
+          
+          if (trade.shouldWin) {
+            status = 'won';
+            payout = (parseFloat(trade.amount) * 1.82).toString();
+          } else {
+            status = 'lost';
+            payout = '0';
+          }
+          
+          await storage.updateTrade(trade.id, closePrice, status, payout);
+          
+          if (status === 'won' && payout !== '0') {
+            const payoutAmount = parseFloat(payout);
+            if (trade.isDemo) {
+              const newDemoBalance = (parseFloat(user.demoBalance || "0") + payoutAmount).toFixed(2);
+              await storage.updateUserBalance(trade.userId, newDemoBalance, user.realBalance || "0.00");
+            } else {
+              const newRealBalance = (parseFloat(user.realBalance || "0") + payoutAmount).toFixed(2);
+              await storage.updateUserBalance(trade.userId, user.demoBalance || "10000.00", newRealBalance);
+            }
+          }
+          
+          activeTrades.delete(trade.id);
+          console.log(`Trade ${trade.id} auto-closed: ${status} (shouldWin: ${trade.shouldWin}), payout: ${payout}`);
+          
+          // Clean up closed trades set periodically (keep last 1000)
+          if (closedTrades.size > 1000) {
+            const toDelete = Array.from(closedTrades).slice(0, 500);
+            toDelete.forEach(id => closedTrades.delete(id));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking trade expiry:', error);
+    }
   };
 
   setInterval(checkTradeExpiry, 1000); // Check every second
