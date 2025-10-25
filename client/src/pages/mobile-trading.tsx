@@ -13,7 +13,7 @@ export default function MobileTradingPage() {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [tradeAmount, setTradeAmount] = useState(10);
   const [tradeDuration, setTradeDuration] = useState(1);
-  const [payout, setPayout] = useState(90);
+  const [payout, setPayout] = useState(92);
   const [balance, setBalance] = useState(49499.90);
   const [timeRemaining, setTimeRemaining] = useState('23:56:16');
   const [currentPrice, setCurrentPrice] = useState(0);
@@ -145,13 +145,62 @@ export default function MobileTradingPage() {
           </div>
           <div>
             <div className="text-gray-500 text-[11px] mb-1.5">Montant</div>
-            <button 
-              className="w-full bg-[#1a2033] text-white px-3 py-2.5 rounded-lg flex items-center justify-center gap-2 border border-gray-800"
-              data-testid="button-amount-selector"
-            >
-              <DollarSign className="w-4 h-4 text-gray-400" />
-              <span className="text-sm font-medium">{tradeAmount}</span>
-            </button>
+            <div className="w-full bg-[#1a2033] text-white px-3 py-2.5 rounded-lg border border-gray-800">
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  onClick={() => setTradeAmount(Math.max(1, tradeAmount - 10))}
+                  className="w-6 h-6 rounded bg-[#0a0e1a] hover:bg-[#14192a] text-white flex items-center justify-center transition-colors"
+                >
+                  <span className="text-xs font-bold">−</span>
+                </button>
+                <input
+                  type="number"
+                  value={tradeAmount}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    if (!isNaN(value) && value >= 1) {
+                      setTradeAmount(value);
+                    }
+                  }}
+                  min="1"
+                  className="flex-1 bg-transparent text-white font-medium text-center outline-none text-sm"
+                  data-testid="input-trade-amount"
+                />
+                <button
+                  onClick={() => setTradeAmount(Math.min(balance, tradeAmount + 10))}
+                  className="w-6 h-6 rounded bg-[#0a0e1a] hover:bg-[#14192a] text-white flex items-center justify-center transition-colors"
+                >
+                  <span className="text-xs font-bold">+</span>
+                </button>
+                <DollarSign className="w-4 h-4 text-gray-400" />
+              </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setTradeAmount(10)}
+                  className="flex-1 px-2 py-0.5 bg-[#0a0e1a] hover:bg-[#14192a] text-gray-300 text-xs rounded transition-colors"
+                >
+                  10
+                </button>
+                <button
+                  onClick={() => setTradeAmount(50)}
+                  className="flex-1 px-2 py-0.5 bg-[#0a0e1a] hover:bg-[#14192a] text-gray-300 text-xs rounded transition-colors"
+                >
+                  50
+                </button>
+                <button
+                  onClick={() => setTradeAmount(100)}
+                  className="flex-1 px-2 py-0.5 bg-[#0a0e1a] hover:bg-[#14192a] text-gray-300 text-xs rounded transition-colors"
+                >
+                  100
+                </button>
+                <button
+                  onClick={() => setTradeAmount(Math.min(balance, 500))}
+                  className="flex-1 px-2 py-0.5 bg-[#0a0e1a] hover:bg-[#14192a] text-gray-300 text-xs rounded transition-colors"
+                >
+                  500
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
