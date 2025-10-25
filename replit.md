@@ -4,7 +4,22 @@
 
 This is a binary options trading platform built with a React frontend and Express backend. The application allows users to trade on various financial assets (forex, crypto, commodities, indices) with real-time price updates via WebSocket. Users can execute CALL/PUT trades with configurable expiry times, manage demo and real account balances, and track their trading history.
 
-**Recent Updates (Oct 14, 2025)**:
+**Recent Updates (Oct 25, 2025)**:
+- **Technical Analysis Tools**: Added comprehensive charting tools for professional trading analysis
+  - **Technical Indicators**: MA (20, 50), EMA (12, 26), RSI (14), MACD, Bollinger Bands
+  - **Drawing Tools**: Trendlines, Horizontal lines, Vertical lines, Rectangles, Fibonacci retracement
+  - **Interactive UI**: Toggle indicators on/off with visual feedback, color-coded indicator lines
+  - **Real-time Updates**: Indicators automatically update with new price data
+- **Bok Option Branding**: Professional blue gradient layered logo added across all pages
+- **Asset Icons**: Each asset now has a unique logo/flag with gradient colors:
+  - Forex pairs: Currency symbols with country-specific gradients (e.g., EUR/USD: €/$ blue-yellow)
+  - Cryptocurrencies: Crypto symbols with brand colors (BTC: ₿ orange-yellow, ETH: Ξ purple-blue)
+  - Commodities: Visual icons (Gold: 🏅 yellow, Oil: 🛢️ black, Natural Gas: 🔥 blue)
+  - Indices: Market abbreviations (S&P: blue-red, Nasdaq: blue-purple, Dow: dark blue)
+- **UI Enhancement**: Icons appear in asset selector, trading pages, and asset list for better visual recognition
+- **Mobile Optimization**: Logo and asset icons responsive across all screen sizes
+
+**Previous Updates (Oct 14, 2025)**:
 - **Data Persistence Fixed**: All data now properly persists to NeonDB across page refreshes and server restarts
 - **Open Trades Recovery**: Active trades are now loaded from database on server startup, preventing loss on restart
 - **Chart Data Persistence**: Fixed issue where candlestick data would reset to zero on page refresh

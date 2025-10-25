@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Logo } from '@/components/ui/logo';
+import { AssetIcon } from '@/components/ui/asset-icon';
 import { ExternalLink, Menu, X, Wallet, UserCircle } from 'lucide-react';
 import type { Asset } from '@shared/schema';
 import OtcChart, { OtcChartRef } from '@/components/chart/otc-chart';
@@ -153,6 +154,7 @@ export default function TradingPage() {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              {state.selectedAsset && <AssetIcon assetId={state.selectedAsset.id} size="sm" />}
               <span className="text-white font-semibold text-base">{state.selectedAsset?.name || 'اختر زوج'}</span>
               <i className="fas fa-chevron-down text-xs text-blue-400"></i>
             </div>

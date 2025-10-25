@@ -4,6 +4,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { Logo } from '@/components/ui/logo';
+import { AssetIcon } from '@/components/ui/asset-icon';
 import type { Asset } from '@shared/schema';
 import { TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
 import OtcChart, { OtcChartRef } from '@/components/chart/otc-chart';
@@ -101,9 +102,10 @@ export default function MobileTradingPage() {
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <button 
-              className="text-white font-medium text-sm flex items-center gap-1 bg-[#1a2033] px-2 py-1 rounded"
+              className="text-white font-medium text-sm flex items-center gap-2 bg-[#1a2033] px-2 py-1 rounded"
               data-testid="button-asset-selector"
             >
+              {selectedAsset && <AssetIcon assetId={selectedAsset.id} size="sm" />}
               {selectedAsset?.symbol || 'USD/JPY OTC'} <span className="text-[10px]">▼</span>
             </button>
           </div>

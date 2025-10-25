@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
-import { createChart, IChartApi, ISeriesApi, CandlestickData, CandlestickSeries, createSeriesMarkers } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, CandlestickSeries, createSeriesMarkers, LineData } from "lightweight-charts";
+import { ChartIndicators, Indicator, DrawingTool, calculateMA, calculateEMA, calculateRSI, calculateBollingerBands } from './chart-indicators';
 
 interface Candle {
   pair: string;
@@ -37,6 +38,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const [currentTime, setCurrentTime] = useState(Math.floor(Date.now() / 1000));
   const [showHistory, setShowHistory] = useState(false);
   const [updateInterval, setUpdateInterval] = useState<number>(15);
+  const [activeIndicators, setActiveIndicators] = useState<Indicator[]>([]);
 
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<any>(null);
@@ -50,6 +52,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const candleStartTimeRef = useRef<number>(0);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isMobile = useRef(window.innerWidth < 768);
+  const indicatorSeriesRef = useRef<Record<string, any>>({});
   
   // Store candles for each pair separately
   const pairCandlesRef = useRef<Record<string, {
@@ -515,14 +518,124 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Handle indicator toggle
+  const handleIndicatorToggle = (indicator: Indicator) => {
+    const isActive = activeIndicators.some(ind => ind.id === indicator.id);
+    
+    if (isActive) {
+      // Remove indicator
+      setActiveIndicators(activeIndicators.filter(ind => ind.id !== indicator.id));
+      // Remove series from chart
+      if (indicatorSeriesRef.current[indicator.id]) {
+        chartRef.current?.removeSeries(indicatorSeriesRef.current[indicator.id]);
+        delete indicatorSeriesRef.current[indicator.id];
+      }
+    } else {
+      // Add indicator
+      setActiveIndicators([...activeIndicators, indicator]);
+      updateIndicators([...activeIndicators, indicator]);
+    }
+  };
+
+  // Handle drawing tool selection
+  const handleDrawingToolSelect = (tool: DrawingTool) => {
+    console.log('Drawing tool selected:', tool.name);
+    // TODO: Implement drawing tools
+  };
+
+  // Update indicators on chart
+  const updateIndicators = (indicators: Indicator[]) => {
+    if (!chartRef.current || !seriesRef.current) return;
+
+    const closePrices = candleBufferRef.current.map(candle => candle.close);
+    const times = candleBufferRef.current.map(candle => candle.time);
+
+    indicators.forEach(indicator => {
+      // Remove old series if exists
+      if (indicatorSeriesRef.current[indicator.id]) {
+        chartRef.current?.removeSeries(indicatorSeriesRef.current[indicator.id]);
+      }
+
+      let indicatorData: LineData[] = [];
+
+      switch (indicator.type) {
+        case 'ma':
+          const maValues = calculateMA(closePrices, indicator.period || 20);
+          indicatorData = times.map((time, i) => ({
+            time,
+            value: maValues[i] || 0
+          })).filter(d => !isNaN(d.value));
+          break;
+
+        case 'ema':
+          const emaValues = calculateEMA(closePrices, indicator.period || 12);
+          indicatorData = times.slice(indicator.period || 12).map((time, i) => ({
+            time,
+            value: emaValues[i] || 0
+          })).filter(d => !isNaN(d.value));
+          break;
+
+        case 'bb':
+          const bb = calculateBollingerBands(closePrices, indicator.period || 20);
+          // Add upper, middle, lower bands
+          ['upper', 'middle', 'lower'].forEach((band, idx) => {
+            const bandId = `${indicator.id}_${band}`;
+            const bandData = times.map((time, i) => ({
+              time,
+              value: bb[band as keyof typeof bb][i] || 0
+            })).filter(d => !isNaN(d.value));
+
+            if (indicatorSeriesRef.current[bandId]) {
+              chartRef.current?.removeSeries(indicatorSeriesRef.current[bandId]);
+            }
+
+            const bandSeries = chartRef.current!.addSeries('Line' as any, {
+              color: idx === 0 ? '#FFC107' : idx === 1 ? '#2196F3' : '#FFC107',
+              lineWidth: idx === 1 ? 2 : 1,
+              lineStyle: idx === 1 ? 0 : 2,
+            } as any);
+            bandSeries.setData(bandData);
+            indicatorSeriesRef.current[bandId] = bandSeries;
+          });
+          return;
+      }
+
+      if (indicatorData.length > 0) {
+        const lineSeries = chartRef.current!.addSeries('Line' as any, {
+          color: indicator.color || '#2196F3',
+          lineWidth: 2,
+          crosshairMarkerVisible: true,
+          lastValueVisible: true,
+          priceLineVisible: false,
+        } as any);
+        lineSeries.setData(indicatorData);
+        indicatorSeriesRef.current[indicator.id] = lineSeries;
+      }
+    });
+  };
+
+  // Update indicators when candle data changes
+  useEffect(() => {
+    if (activeIndicators.length > 0 && candleBufferRef.current.length > 0) {
+      updateIndicators(activeIndicators);
+    }
+  }, [candleBufferRef.current.length, activeIndicators.length]);
+
   // Calculate countdown and profit/loss for active trades
   const activeTrades = trades.filter(t => !t.result);
   const completedTrades = trades.filter(t => t.result);
 
   return (
     <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative">
+      {/* Chart Indicators & Drawing Tools */}
+      <ChartIndicators
+        onIndicatorToggle={handleIndicatorToggle}
+        onDrawingToolSelect={handleDrawingToolSelect}
+        activeIndicators={activeIndicators}
+      />
+      
       {/* Update Interval Selector */}
-      <div className="absolute top-4 right-4 z-30">
+      <div className="absolute top-2 right-2 z-10">
         <select
           value={updateInterval}
           onChange={(e) => setUpdateInterval(Number(e.target.value))}

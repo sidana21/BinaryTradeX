@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Asset } from '@shared/schema';
+import { AssetIcon } from '@/components/ui/asset-icon';
 
 interface AssetListProps {
   assets: Asset[];
@@ -134,9 +135,7 @@ export function AssetList({ assets, selectedAsset, onAssetSelect, isLoading }: A
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
-                  <i className={`${getAssetIcon(asset.category)} text-accent text-xs`}></i>
-                </div>
+                <AssetIcon assetId={asset.id} size="md" />
                 <div>
                   <div className="font-semibold text-sm">{asset.name}</div>
                   <div className="text-xs text-muted-foreground">{getCategoryLabel(asset.category)}</div>
