@@ -49,6 +49,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const currentCandleRef = useRef<CandlestickData | null>(null);
   const candleStartTimeRef = useRef<number>(0);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isMobile = useRef(window.innerWidth < 768);
   
   // Store candles for each pair separately
   const pairCandlesRef = useRef<Record<string, {
@@ -110,9 +111,16 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         timeVisible: true, 
         secondsVisible: false,
         borderColor: "#2a3447",
-        rightOffset: 5,
-        barSpacing: 8,
-        minBarSpacing: 4,
+        rightOffset: isMobile.current ? 8 : 12,
+        barSpacing: isMobile.current ? 6 : 10,
+        minBarSpacing: isMobile.current ? 3 : 5,
+        fixLeftEdge: false,
+        fixRightEdge: false,
+        lockVisibleTimeRangeOnResize: false,
+        rightBarStaysOnScroll: true,
+        borderVisible: true,
+        visible: true,
+        shiftVisibleRangeOnNewBar: true,
       },
       rightPriceScale: {
         borderColor: "#2a3447",
@@ -120,6 +128,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           top: 0.1,
           bottom: 0.1,
         },
+        autoScale: true,
       },
       crosshair: {
         mode: 1,
@@ -146,6 +155,10 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         axisPressedMouseMove: true,
         mouseWheel: true,
         pinch: true,
+      },
+      kineticScroll: {
+        touch: true,
+        mouse: false,
       },
     });
     chartRef.current = chart;
@@ -229,6 +242,11 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             console.log('Updating chart with', allCandles.length, 'candles, current candle:', currentCandleRef.current);
             seriesRef.current?.setData(allCandles);
             
+            // Auto-scroll to the latest candle (rightmost position)
+            if (chartRef.current && allCandles.length > 0) {
+              chartRef.current.timeScale().scrollToRealTime();
+            }
+            
             setLastPrice(price);
             onPriceUpdate?.(price);
 
@@ -287,14 +305,34 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           console.log('Loaded', candles.length, 'candles from database for', pair);
           
           if (candles.length > 0) {
-            candleBufferRef.current = candles;
+            // Remove duplicates and sort by time (ascending)
+            const uniqueCandles = candles.reduce((acc: CandlestickData[], current: CandlestickData) => {
+              const exists = acc.find(c => c.time === current.time);
+              if (!exists) {
+                acc.push(current);
+              }
+              return acc;
+            }, []).sort((a: CandlestickData, b: CandlestickData) => {
+              const timeA = typeof a.time === 'number' ? a.time : (a.time as any).timestamp || 0;
+              const timeB = typeof b.time === 'number' ? b.time : (b.time as any).timestamp || 0;
+              return timeA - timeB;
+            });
+            
+            candleBufferRef.current = uniqueCandles;
             currentCandleRef.current = null;
             candleStartTimeRef.current = 0;
             
             if (seriesRef.current) {
-              seriesRef.current.setData(candles);
-              const lastCandle = candles[candles.length - 1];
+              seriesRef.current.setData(uniqueCandles);
+              const lastCandle = uniqueCandles[uniqueCandles.length - 1];
               setLastPrice(lastCandle.close);
+              
+              // Auto-scroll to the latest candle after loading data
+              if (chartRef.current) {
+                setTimeout(() => {
+                  chartRef.current?.timeScale().scrollToRealTime();
+                }, 100);
+              }
             }
           } else {
             // No data in database, start fresh
