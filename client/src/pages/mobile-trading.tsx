@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/hooks/use-websocket';
+import { Logo } from '@/components/ui/logo';
 import type { Asset } from '@shared/schema';
 import { TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
 import OtcChart, { OtcChartRef } from '@/components/chart/otc-chart';
@@ -82,9 +83,9 @@ export default function MobileTradingPage() {
       {/* Header */}
       <div className="bg-[#14192a] px-4 py-2.5 flex items-center justify-between border-b border-gray-900">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-gray-600 rounded-full"></div>
+          <Logo size="sm" showText={false} />
           <div>
-            <div className="text-gray-500 text-[10px] uppercase">QT Demo</div>
+            <div className="text-gray-500 text-[10px] uppercase">Demo Account</div>
             <div className="text-white text-base font-semibold">
               ${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] text-gray-500">USD</span>
             </div>

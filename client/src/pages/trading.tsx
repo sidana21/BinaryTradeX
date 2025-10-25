@@ -8,6 +8,7 @@ import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Logo } from '@/components/ui/logo';
 import { ExternalLink, Menu, X, Wallet, UserCircle } from 'lucide-react';
 import type { Asset } from '@shared/schema';
 import OtcChart, { OtcChartRef } from '@/components/chart/otc-chart';
@@ -101,14 +102,9 @@ export default function TradingPage() {
       {/* Pocket Option Style Header - Mobile First */}
       <header className="bg-[#0f1535] border-b border-[#1a1f3a] px-3 py-2 z-50 flex-shrink-0">
         <div className="flex items-center justify-between">
-          {/* Left - User Avatar & Gift */}
+          {/* Left - Logo */}
           <div className="flex items-center gap-3">
-            <button className="w-9 h-9 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
-              <i className="fas fa-user text-gray-300 text-sm"></i>
-            </button>
-            <button className="w-9 h-9 rounded-lg bg-[#1a1f3a] flex items-center justify-center">
-              <i className="fas fa-gift text-blue-400"></i>
-            </button>
+            <Logo size="sm" showText={true} />
           </div>
 
           {/* Center - Account Type & Balance */}
