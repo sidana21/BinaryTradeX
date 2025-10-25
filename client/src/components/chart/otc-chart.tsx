@@ -39,6 +39,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const [showHistory, setShowHistory] = useState(false);
   const [updateInterval, setUpdateInterval] = useState<number>(15);
   const [activeIndicators, setActiveIndicators] = useState<Indicator[]>([]);
+  const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [drawings, setDrawings] = useState<any[]>([]);
+  const [currentDrawing, setCurrentDrawing] = useState<any>(null);
 
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<any>(null);
@@ -503,7 +506,106 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
 
       // Exit circle removed - replaced with popup notification
     });
-  }, [trades, lastPrice, currentTime]);
+
+    // Draw indicators
+    if (activeIndicators.length > 0 && candleBufferRef.current.length >= 20) {
+      const closePrices = candleBufferRef.current.map(candle => candle.close);
+
+      activeIndicators.forEach(indicator => {
+        let values: number[] = [];
+        
+        switch (indicator.type) {
+          case 'ma':
+            values = calculateMA(closePrices, indicator.period || 20);
+            break;
+          case 'ema':
+            values = calculateEMA(closePrices, indicator.period || 12);
+            break;
+        }
+
+        if (values.length === 0) return;
+
+        // Draw the indicator line
+        ctx.strokeStyle = indicator.color || '#2196F3';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        let started = false;
+        candleBufferRef.current.forEach((candle, i) => {
+          if (isNaN(values[i]) || values[i] === 0) return;
+
+          const x = timeScale.timeToCoordinate(candle.time);
+          const y = seriesRef.current?.priceToCoordinate(values[i]);
+
+          if (x === null || y === null || y === undefined) return;
+
+          if (!started) {
+            ctx.moveTo(x, y);
+            started = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+
+        ctx.stroke();
+      });
+    }
+
+    // Draw user drawings
+    [...drawings, currentDrawing].filter(Boolean).forEach(drawing => {
+      if (!drawing) return;
+      
+      ctx.strokeStyle = '#2196F3';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+
+      switch (drawing.type) {
+        case 'trendline':
+          ctx.beginPath();
+          ctx.moveTo(drawing.startX, drawing.startY);
+          ctx.lineTo(drawing.endX, drawing.endY);
+          ctx.stroke();
+          break;
+
+        case 'horizontal':
+          ctx.beginPath();
+          ctx.moveTo(0, drawing.startY);
+          ctx.lineTo(canvas.width, drawing.startY);
+          ctx.stroke();
+          break;
+
+        case 'vertical':
+          ctx.beginPath();
+          ctx.moveTo(drawing.startX, 0);
+          ctx.lineTo(drawing.startX, canvas.height);
+          ctx.stroke();
+          break;
+
+        case 'rectangle':
+          const width = drawing.endX - drawing.startX;
+          const height = drawing.endY - drawing.startY;
+          ctx.strokeRect(drawing.startX, drawing.startY, width, height);
+          break;
+
+        case 'fibonacci':
+          const fibHeight = drawing.endY - drawing.startY;
+          const fibLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+          fibLevels.forEach(level => {
+            const y = drawing.startY + (fibHeight * level);
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.strokeStyle = level === 0 || level === 1 ? '#2196F3' : '#FFC107';
+            ctx.stroke();
+            
+            ctx.fillStyle = '#FFC107';
+            ctx.font = '12px Arial';
+            ctx.fillText(`${(level * 100).toFixed(1)}%`, 10, y - 5);
+          });
+          break;
+      }
+    });
+  }, [trades, lastPrice, currentTime, activeIndicators, drawings, currentDrawing]);
 
   // Handle canvas resize
   useEffect(() => {
@@ -540,86 +642,112 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   // Handle drawing tool selection
   const handleDrawingToolSelect = (tool: DrawingTool) => {
     console.log('Drawing tool selected:', tool.name);
-    // TODO: Implement drawing tools
+    setActiveTool(tool.type);
   };
 
-  // Update indicators on chart
-  const updateIndicators = (indicators: Indicator[]) => {
-    if (!chartRef.current || !seriesRef.current) return;
+  // Handle canvas mouse events for drawing
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!activeTool || !canvasRef.current || !chartRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    setCurrentDrawing({
+      type: activeTool,
+      startX: x,
+      startY: y,
+      endX: x,
+      endY: y,
+    });
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!currentDrawing || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    setCurrentDrawing({
+      ...currentDrawing,
+      endX: x,
+      endY: y,
+    });
+  };
+
+  const handleCanvasMouseUp = () => {
+    if (!currentDrawing) return;
+    
+    setDrawings([...drawings, currentDrawing]);
+    setCurrentDrawing(null);
+    setActiveTool(null); // Reset tool after drawing
+  };
+
+  // Draw indicators on canvas overlay
+  const drawIndicators = () => {
+    if (!canvasRef.current || !chartRef.current || activeIndicators.length === 0) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     const closePrices = candleBufferRef.current.map(candle => candle.close);
-    const times = candleBufferRef.current.map(candle => candle.time);
+    
+    if (closePrices.length < 20) return; // Need enough data
 
-    indicators.forEach(indicator => {
-      // Remove old series if exists
-      if (indicatorSeriesRef.current[indicator.id]) {
-        chartRef.current?.removeSeries(indicatorSeriesRef.current[indicator.id]);
-      }
-
-      let indicatorData: LineData[] = [];
-
+    activeIndicators.forEach(indicator => {
+      let values: number[] = [];
+      
       switch (indicator.type) {
         case 'ma':
-          const maValues = calculateMA(closePrices, indicator.period || 20);
-          indicatorData = times.map((time, i) => ({
-            time,
-            value: maValues[i] || 0
-          })).filter(d => !isNaN(d.value));
+          values = calculateMA(closePrices, indicator.period || 20);
           break;
-
         case 'ema':
-          const emaValues = calculateEMA(closePrices, indicator.period || 12);
-          indicatorData = times.slice(indicator.period || 12).map((time, i) => ({
-            time,
-            value: emaValues[i] || 0
-          })).filter(d => !isNaN(d.value));
+          values = calculateEMA(closePrices, indicator.period || 12);
           break;
-
-        case 'bb':
-          const bb = calculateBollingerBands(closePrices, indicator.period || 20);
-          // Add upper, middle, lower bands
-          ['upper', 'middle', 'lower'].forEach((band, idx) => {
-            const bandId = `${indicator.id}_${band}`;
-            const bandData = times.map((time, i) => ({
-              time,
-              value: bb[band as keyof typeof bb][i] || 0
-            })).filter(d => !isNaN(d.value));
-
-            if (indicatorSeriesRef.current[bandId]) {
-              chartRef.current?.removeSeries(indicatorSeriesRef.current[bandId]);
-            }
-
-            const bandSeries = chartRef.current!.addSeries('Line' as any, {
-              color: idx === 0 ? '#FFC107' : idx === 1 ? '#2196F3' : '#FFC107',
-              lineWidth: idx === 1 ? 2 : 1,
-              lineStyle: idx === 1 ? 0 : 2,
-            } as any);
-            bandSeries.setData(bandData);
-            indicatorSeriesRef.current[bandId] = bandSeries;
-          });
-          return;
       }
 
-      if (indicatorData.length > 0) {
-        const lineSeries = chartRef.current!.addSeries('Line' as any, {
-          color: indicator.color || '#2196F3',
-          lineWidth: 2,
-          crosshairMarkerVisible: true,
-          lastValueVisible: true,
-          priceLineVisible: false,
-        } as any);
-        lineSeries.setData(indicatorData);
-        indicatorSeriesRef.current[indicator.id] = lineSeries;
-      }
+      if (values.length === 0) return;
+
+      // Draw the indicator line
+      ctx.strokeStyle = indicator.color || '#2196F3';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      let started = false;
+      candleBufferRef.current.forEach((candle, i) => {
+        if (isNaN(values[i]) || values[i] === 0) return;
+
+        const timeScale = chartRef.current!.timeScale();
+        const priceScale = seriesRef.current!.priceScale();
+        
+        const x = timeScale.timeToCoordinate(candle.time);
+        const y = priceScale.priceToCoordinate(values[i]);
+
+        if (x === null || y === null) return;
+
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+
+      ctx.stroke();
     });
   };
 
   // Update indicators when candle data changes
   useEffect(() => {
     if (activeIndicators.length > 0 && candleBufferRef.current.length > 0) {
-      updateIndicators(activeIndicators);
+      // Request animation frame to ensure chart is ready
+      requestAnimationFrame(() => {
+        drawIndicators();
+      });
     }
-  }, [candleBufferRef.current.length, activeIndicators.length]);
+  }, [candleBufferRef.current.length, activeIndicators]);
 
   // Calculate countdown and profit/loss for active trades
   const activeTrades = trades.filter(t => !t.result);
@@ -653,8 +781,16 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         <div ref={containerRef} className="absolute inset-0" data-testid="otc-chart" />
         <canvas 
           ref={canvasRef} 
-          className="absolute inset-0 pointer-events-none z-10"
-          style={{ width: '100%', height: '100%' }}
+          className="absolute inset-0 z-10"
+          style={{  
+            width: '100%', 
+            height: '100%',
+            pointerEvents: activeTool ? 'auto' : 'none',
+            cursor: activeTool ? 'crosshair' : 'default'
+          }}
+          onMouseDown={handleCanvasMouseDown}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseUp={handleCanvasMouseUp}
         />
       </div>
 
