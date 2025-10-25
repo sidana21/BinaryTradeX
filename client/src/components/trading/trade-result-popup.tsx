@@ -69,8 +69,8 @@ export function TradeResultPopup({ result, amount, onClose }: TradeResultPopupPr
 
       const timer = setTimeout(() => {
         setIsVisible(false);
-        setTimeout(onClose, 500);
-      }, 7000);
+        setTimeout(onClose, 300);
+      }, 4000);
 
       return () => clearTimeout(timer);
     }
@@ -87,14 +87,14 @@ export function TradeResultPopup({ result, amount, onClose }: TradeResultPopupPr
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.5 }}
-          transition={{ duration: 0.5, type: 'spring', bounce: 0.4 }}
+          transition={{ duration: 0.2, type: 'spring', bounce: 0.3 }}
           className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
         >
           <motion.div
-            initial={{ y: -100, opacity: 0 }}
+            initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
+            exit={{ y: 50, opacity: 0 }}
+            transition={{ duration: 0.3 }}
             className={`relative p-8 rounded-3xl backdrop-blur-xl border-4 shadow-2xl pointer-events-auto ${
               isWin 
                 ? 'bg-gradient-to-br from-emerald-500/30 to-green-600/30 border-emerald-400' 
@@ -117,9 +117,9 @@ export function TradeResultPopup({ result, amount, onClose }: TradeResultPopupPr
 
             <div className="relative z-10 text-center">
               <motion.div
-                initial={{ scale: 0, rotate: -180 }}
+                initial={{ scale: 0, rotate: -90 }}
                 animate={{ scale: 1, rotate: 0 }}
-                transition={{ delay: 0.3, duration: 0.6, type: 'spring' }}
+                transition={{ duration: 0.3, type: 'spring' }}
                 className="mb-4"
               >
                 {isWin ? (
@@ -130,9 +130,9 @@ export function TradeResultPopup({ result, amount, onClose }: TradeResultPopupPr
               </motion.div>
 
               <motion.h2
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
+                transition={{ delay: 0.1, duration: 0.2 }}
                 className={`text-6xl font-black mb-4 ${
                   isWin ? 'text-emerald-300' : 'text-red-300'
                 }`}
@@ -148,7 +148,7 @@ export function TradeResultPopup({ result, amount, onClose }: TradeResultPopupPr
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.7 }}
+                transition={{ delay: 0.2, duration: 0.2 }}
                 className={`text-4xl font-bold ${
                   isWin ? 'text-white' : 'text-white'
                 }`}
@@ -159,7 +159,7 @@ export function TradeResultPopup({ result, amount, onClose }: TradeResultPopupPr
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: '100%' }}
-                transition={{ delay: 1, duration: 6 }}
+                transition={{ delay: 0.3, duration: 3.5 }}
                 className={`h-1 mt-6 rounded-full ${
                   isWin ? 'bg-emerald-400' : 'bg-red-400'
                 }`}
@@ -185,8 +185,8 @@ export function TradeResultPopup({ result, amount, onClose }: TradeResultPopupPr
                       scale: 1
                     }}
                     transition={{
-                      duration: 1.5,
-                      delay: 0.5 + i * 0.02,
+                      duration: 1.2,
+                      delay: 0.1 + i * 0.01,
                       ease: "easeOut"
                     }}
                     style={{
