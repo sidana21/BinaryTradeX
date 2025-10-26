@@ -108,6 +108,12 @@ export default function TradingPage() {
   };
 
   const handleExecuteTrade = (type: 'CALL' | 'PUT') => {
+    // منع التنفيذ إذا كانت هناك صفقة قيد التنفيذ
+    if (isExecuting) {
+      console.warn('Trade already executing, ignoring duplicate click');
+      return;
+    }
+
     if (!state.selectedAsset) {
       toast({
         title: 'خطأ',
