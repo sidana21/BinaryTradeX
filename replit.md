@@ -5,6 +5,12 @@
 This is a binary options trading platform built with a React frontend and Express backend. The application allows users to trade on various financial assets (forex, crypto, commodities, indices) with real-time price updates via WebSocket. Users can execute CALL/PUT trades with configurable expiry times, manage demo and real account balances, and track their trading history.
 
 **Recent Updates (Oct 26, 2025)**:
+- **Chart Refresh Fix**: Resolved chart jumping to old candles on page refresh
+  - **Root Cause**: API was loading last 300 candles by count, which could be 10-15 minutes old
+  - **Solution**: Added time-based data loading - now loads only candles from last 5 minutes
+  - **Implementation**: New `getPriceDataSince()` function in storage.ts filters by timestamp
+  - **API Update**: `/api/price-data/:assetId` now uses time window instead of limit parameter
+  - **User Experience**: Chart maintains consistent time range and direction after refresh, no jumping
 - **Trade Duration Fix**: Temps selector now correctly changes trade expiration time
   - **Duration Prop**: Trading page now passes selected timeframe (1m/5m/15m) to OtcChart as duration prop
   - **Conversion Function**: Added getTradeDuration() to convert timeframe strings to seconds (60/300/900)
