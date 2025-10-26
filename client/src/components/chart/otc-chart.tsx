@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
-import { createChart, IChartApi, ISeriesApi, CandlestickData, CandlestickSeries, createSeriesMarkers, LineData, Time } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, CandlestickSeries, createSeriesMarkers, LineData } from "lightweight-charts";
 import { ChartIndicators, Indicator, DrawingTool, calculateMA, calculateEMA, calculateRSI, calculateBollingerBands } from './chart-indicators';
-import { DrawingManager, DrawingPoint } from './drawing-primitives';
 
 interface Candle {
   pair: string;
@@ -48,6 +47,27 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const [selectedDrawing, setSelectedDrawing] = useState<number | null>(null);
   const [dragHandle, setDragHandle] = useState<'start' | 'end' | 'move' | null>(null);
   const [dragOffset, setDragOffset] = useState<{x: number, y: number}>({x: 0, y: 0});
+  
+  // Sync state with refs
+  useEffect(() => {
+    drawingsRef.current = drawings;
+  }, [drawings]);
+  
+  useEffect(() => {
+    currentDrawingRef.current = currentDrawing;
+  }, [currentDrawing]);
+  
+  useEffect(() => {
+    selectedDrawingRef.current = selectedDrawing;
+  }, [selectedDrawing]);
+  
+  useEffect(() => {
+    dragHandleRef.current = dragHandle;
+  }, [dragHandle]);
+  
+  useEffect(() => {
+    activeToolRef.current = activeTool;
+  }, [activeTool]);
   const [tradeNotifications, setTradeNotifications] = useState<Array<{
     id: number;
     result: 'win' | 'lose';
@@ -70,8 +90,12 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const indicatorSeriesRef = useRef<Record<string, any>>({});
   const isPairChangeRef = useRef(false); // Flag to track when pair changes
   
-  // TradingView Drawing Manager
-  const drawingManagerRef = useRef<DrawingManager | null>(null);
+  // Refs for drawing state to avoid stale closures
+  const drawingsRef = useRef<any[]>([]);
+  const currentDrawingRef = useRef<any>(null);
+  const selectedDrawingRef = useRef<number | null>(null);
+  const dragHandleRef = useRef<'start' | 'end' | 'move' | null>(null);
+  const activeToolRef = useRef<string | null>(null);
   
   // Store candles for each pair separately
   const pairCandlesRef = useRef<Record<string, {
@@ -981,20 +1005,22 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     const y = e.clientY - rect.top;
 
     // If we have an active drawing tool, start new drawing
-    if (activeTool) {
-      setCurrentDrawing({
-        type: activeTool,
+    if (activeToolRef.current) {
+      const newDrawing = {
+        type: activeToolRef.current,
         startX: x,
         startY: y,
         endX: x,
         endY: y,
-      });
+      };
+      currentDrawingRef.current = newDrawing;
+      setCurrentDrawing(newDrawing);
       return;
     }
 
     // Check if clicking on existing drawing handles or lines
-    for (let i = drawings.length - 1; i >= 0; i--) {
-      const drawing = drawings[i];
+    for (let i = drawingsRef.current.length - 1; i >= 0; i--) {
+      const drawing = drawingsRef.current[i];
       
       // Check start handle
       if (isNearPoint(x, y, drawing.startX, drawing.startY)) {
@@ -1067,27 +1093,29 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     const y = e.clientY - rect.top;
 
     // Handle new drawing
-    if (currentDrawing) {
-      setCurrentDrawing({
-        ...currentDrawing,
+    if (currentDrawingRef.current) {
+      const updatedDrawing = {
+        ...currentDrawingRef.current,
         endX: x,
         endY: y,
-      });
+      };
+      currentDrawingRef.current = updatedDrawing;
+      setCurrentDrawing(updatedDrawing);
       return;
     }
 
     // Handle editing existing drawing
-    if (selectedDrawing !== null && dragHandle) {
-      const newDrawings = [...drawings];
-      const drawing = newDrawings[selectedDrawing];
+    if (selectedDrawingRef.current !== null && dragHandleRef.current) {
+      const newDrawings = [...drawingsRef.current];
+      const drawing = newDrawings[selectedDrawingRef.current];
 
-      if (dragHandle === 'start') {
+      if (dragHandleRef.current === 'start') {
         drawing.startX = x;
         drawing.startY = y;
-      } else if (dragHandle === 'end') {
+      } else if (dragHandleRef.current === 'end') {
         drawing.endX = x;
         drawing.endY = y;
-      } else if (dragHandle === 'move') {
+      } else if (dragHandleRef.current === 'move') {
         if (drawing.type === 'horizontal') {
           drawing.startY = y - dragOffset.y;
         } else if (drawing.type === 'vertical') {
@@ -1103,19 +1131,25 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         }
       }
 
+      drawingsRef.current = newDrawings;
       setDrawings(newDrawings);
     }
   };
 
   const handleCanvasMouseUp = () => {
     // Finish new drawing
-    if (currentDrawing) {
-      setDrawings([...drawings, currentDrawing]);
+    if (currentDrawingRef.current) {
+      const newDrawings = [...drawingsRef.current, currentDrawingRef.current];
+      drawingsRef.current = newDrawings;
+      setDrawings(newDrawings);
+      currentDrawingRef.current = null;
       setCurrentDrawing(null);
+      activeToolRef.current = null;
       setActiveTool(null);
     }
     
     // Finish editing
+    dragHandleRef.current = null;
     setDragHandle(null);
   };
 
