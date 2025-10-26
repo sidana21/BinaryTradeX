@@ -9,7 +9,8 @@ This is a binary options trading platform built with a React frontend and Expres
   - **Duration Prop**: Trading page now passes selected timeframe (1m/5m/15m) to OtcChart as duration prop
   - **Conversion Function**: Added getTradeDuration() to convert timeframe strings to seconds (60/300/900)
   - **Dynamic Expiry**: Trade exitTime now properly calculated based on selected duration instead of fixed 60 seconds
-  - **User Experience**: Changing Temps from 1M to 5M or 15M now correctly adjusts trade duration
+  - **Visual Countdown Display**: Temps section now shows "1:00", "5:00", or "15:00" based on selection
+  - **User Experience**: Changing Temps from 1M to 5M or 15M now correctly adjusts trade duration and displays countdown
 - **Pocket Option-Style Notifications**: Fast win/loss notifications with no delay popups
   - **Visual Design**: Green gradient for wins, red for losses, with animated icons (✓/✗)
   - **Auto-Dismiss**: Appears at top center, automatically fades out after 2.5 seconds
