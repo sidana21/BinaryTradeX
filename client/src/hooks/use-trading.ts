@@ -104,6 +104,7 @@ export function useTrading() {
       assetId: string;
       expiryTime: Date;
       isDemo: boolean;
+      openPrice: number; // إضافة السعر الفعلي من الشارت
       entryTime?: Date; // إضافة entryTime
     }) => {
       const response = await apiRequest('POST', '/api/trades', {
@@ -111,7 +112,7 @@ export function useTrading() {
         assetId: tradeData.assetId,
         type: tradeData.type,
         amount: tradeData.amount.toString(),
-        openPrice: state.selectedAsset?.currentPrice || '0',
+        openPrice: tradeData.openPrice.toString(), // استخدام السعر من الشارت
         expiryTime: tradeData.expiryTime.toISOString(),
         createdAt: tradeData.entryTime?.toISOString(), // إرسال وقت الدخول من المتصفح
         isDemo: tradeData.isDemo,
@@ -199,7 +200,7 @@ export function useTrading() {
     },
   });
 
-  const executeTrade = (type: 'CALL' | 'PUT') => {
+  const executeTrade = (type: 'CALL' | 'PUT', currentPrice: number) => {
     if (!state.selectedAsset) return;
 
     const timeframes = {
@@ -217,6 +218,7 @@ export function useTrading() {
       amount: state.tradeAmount,
       assetId: state.selectedAsset.id,
       expiryTime,
+      openPrice: currentPrice, // استخدام السعر الفعلي من الشارت
       isDemo: state.isDemoAccount
     });
   };

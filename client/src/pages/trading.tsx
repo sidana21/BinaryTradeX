@@ -100,13 +100,24 @@ export default function TradingPage() {
       return;
     }
 
+    // احصل على السعر الحالي من الشارت (وليس من state)
+    const currentPrice = chartRef.current?.getCurrentPrice();
+    if (!currentPrice) {
+      toast({
+        title: 'خطأ',
+        description: 'لا يمكن الحصول على السعر الحالي',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // رسم الخط الذهبي فوراً للـ visual feedback
     if (chartRef.current) {
       chartRef.current.placeTrade(type === 'CALL' ? 'buy' : 'sell');
     }
     
-    // إنشاء الصفقة في قاعدة البيانات (ستستبدل الخط المؤقت)
-    executeTrade(type);
+    // إنشاء الصفقة في قاعدة البيانات مع السعر الصحيح من الشارت
+    executeTrade(type, currentPrice);
     
     toast({
       title: 'تم تنفيذ الصفقة',
