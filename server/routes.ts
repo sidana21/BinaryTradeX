@@ -1236,6 +1236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const users = await storage.getAllUsers();
       const deposits = await storage.getAllDeposits();
       const trades = await storage.getAllTrades();
+      const withdrawals = await storage.getAllWithdrawals();
 
       const totalUsers = users.length;
       const totalDeposits = deposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
@@ -1249,6 +1250,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const totalTradeVolume = trades.reduce((sum, t) => sum + parseFloat(t.amount), 0);
       const totalPayout = trades.reduce((sum, t) => sum + parseFloat(t.payout || '0'), 0);
+
+      const totalWithdrawals = withdrawals.reduce((sum, w) => sum + parseFloat(w.amount), 0);
+      const pendingWithdrawals = withdrawals.filter(w => w.status === 'pending').length;
+      const completedWithdrawals = withdrawals.filter(w => w.status === 'completed').length;
 
       res.json({
         users: {
@@ -1267,10 +1272,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lost: lostTrades,
           volume: totalTradeVolume,
           payout: totalPayout
+        },
+        withdrawals: {
+          total: totalWithdrawals,
+          pending: pendingWithdrawals,
+          completed: completedWithdrawals,
+          count: withdrawals.length
         }
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Admin withdrawals endpoint
+  app.get("/api/admin/withdrawals", async (req, res) => {
+    try {
+      const withdrawals = await storage.getAllWithdrawals();
+      res.json(withdrawals);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch withdrawals" });
     }
   });
 
