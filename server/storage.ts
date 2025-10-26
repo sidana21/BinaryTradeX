@@ -28,6 +28,7 @@ export interface IStorage {
 
   // Price Data
   getPriceData(assetId: string, limit?: number): Promise<PriceData[]>;
+  getPriceDataSince(assetId: string, sinceTimestamp: Date): Promise<PriceData[]>;
   addPriceData(priceData: InsertPriceData): Promise<PriceData>;
 
   // Deposits
@@ -247,6 +248,16 @@ export class DbStorage implements IStorage {
       .where(eq(priceDataTable.assetId, assetId))
       .orderBy(desc(priceDataTable.timestamp))
       .limit(limit);
+  }
+
+  async getPriceDataSince(assetId: string, sinceTimestamp: Date): Promise<PriceData[]> {
+    const { gte } = await import('drizzle-orm');
+    return await this.db.select().from(priceDataTable)
+      .where(and(
+        eq(priceDataTable.assetId, assetId),
+        gte(priceDataTable.timestamp, sinceTimestamp)
+      ))
+      .orderBy(priceDataTable.timestamp);
   }
 
   async addPriceData(priceData: InsertPriceData): Promise<PriceData> {

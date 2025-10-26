@@ -113,12 +113,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/price-data/:assetId", async (req, res) => {
     try {
       const { assetId } = req.params;
-      const limit = parseInt(req.query.limit as string) || 100;
       
-      const priceData = await storage.getPriceData(assetId, limit);
+      // Load only recent candles (last 5 minutes) to prevent chart jumping to old data
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const priceData = await storage.getPriceDataSince(assetId, fiveMinutesAgo);
       
       // Convert to candle format
-      const candles = priceData.reverse().map(pd => ({
+      const candles = priceData.map(pd => ({
         time: Math.floor(new Date(pd.timestamp).getTime() / 1000),
         open: parseFloat(pd.open),
         high: parseFloat(pd.high),

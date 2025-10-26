@@ -491,9 +491,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       // No saved state, load from database
       const loadCandles = async () => {
         try {
-          // Load more candles to preserve chart history (300 instead of 100)
-          // This ensures the chart looks the same after refresh
-          const response = await fetch(`/api/price-data/${pair}_OTC?limit=300`);
+          // Load recent candles (last 5 minutes) to ensure chart starts at the right time
+          const response = await fetch(`/api/price-data/${pair}_OTC`);
           if (response.ok) {
             const candles = await response.json();
             console.log('Loaded', candles.length, 'candles from database for', pair);
