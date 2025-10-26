@@ -151,8 +151,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     };
     const intervalSeconds = timeframeSeconds[timeframe || '1m'] || 60;
     
-    // Comprehensive base prices for all OTC pairs
-    const basePrices: Record<string, number> = {
+    // Fallback base prices (used only if no DB data exists)
+    const fallbackPrices: Record<string, number> = {
       // Forex OTC
       "EURUSD_OTC": 1.0856, "GBPUSD_OTC": 1.2678, "USDJPY_OTC": 149.85,
       "AUDUSD_OTC": 0.6550, "USDCAD_OTC": 1.3550, "USDCHF_OTC": 0.8845,
@@ -173,7 +173,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       "NIKKEI_OTC": 33145.80
     };
     
-    let basePrice = basePrices[assetId] || 1.0;
+    // CRITICAL FIX: Start from last saved price in DB, not static basePrice
+    let basePrice: number;
+    try {
+      const lastCandle = await storage.getPriceData(assetId, 1);
+      if (lastCandle && lastCandle.length > 0) {
+        basePrice = parseFloat(lastCandle[0].close);
+        console.log(`📊 Using last DB price for ${assetId}: ${basePrice}`);
+      } else {
+        basePrice = fallbackPrices[assetId] || 1.0;
+        console.log(`⚠️ No DB data for ${assetId}, using fallback: ${basePrice}`);
+      }
+    } catch (error) {
+      basePrice = fallbackPrices[assetId] || 1.0;
+      console.log(`⚠️ DB error for ${assetId}, using fallback: ${basePrice}`);
+    }
     const currentTime = Math.floor(Date.now() / 1000);
     const candles = [];
     
