@@ -1,29 +1,27 @@
--- Fix database schema to add missing email column
--- Run this SQL directly in NeonDB console if db:push fails
+-- CRITICAL FIX: Add missing email column to users table
+-- Execute this SQL in NeonDB Console (SQL Editor) for your PRODUCTION database
 
--- Step 1: Add email column if it doesn't exist (with default values)
+-- Step 1: Add email column (allows NULL initially)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+
+-- Step 2: Set default emails for existing users
+UPDATE users 
+SET email = username || '@trading.local'
+WHERE email IS NULL OR email = '';
+
+-- Step 3: Make email required and unique
+ALTER TABLE users 
+ALTER COLUMN email SET NOT NULL;
+
+-- Step 4: Add unique constraint if not exists
 DO $$ 
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'users' AND column_name = 'email'
+        SELECT 1 FROM pg_constraint WHERE conname = 'users_email_unique'
     ) THEN
-        -- Add column without NOT NULL first
-        ALTER TABLE users ADD COLUMN email TEXT;
-        
-        -- Update existing users with default emails
-        UPDATE users 
-        SET email = username || '@demo.local'
-        WHERE email IS NULL;
-        
-        -- Now make it NOT NULL and UNIQUE
-        ALTER TABLE users 
-        ALTER COLUMN email SET NOT NULL;
-        
-        ALTER TABLE users 
-        ADD CONSTRAINT users_email_unique UNIQUE (email);
+        ALTER TABLE users ADD CONSTRAINT users_email_unique UNIQUE (email);
     END IF;
 END $$;
 
--- Verify the change
-SELECT id, username, email FROM users LIMIT 10;
+-- Verify the fix
+SELECT id, username, email, demo_balance FROM users LIMIT 5;
