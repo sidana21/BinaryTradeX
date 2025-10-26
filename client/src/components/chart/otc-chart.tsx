@@ -322,6 +322,16 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             const currentTime = tick.time;
             const price = tick.price;
             
+            // Ignore ticks that are older than the last candle in buffer
+            if (candleBufferRef.current.length > 0) {
+              const lastCandle = candleBufferRef.current[candleBufferRef.current.length - 1];
+              const lastCandleTime = typeof lastCandle.time === 'number' ? lastCandle.time : (lastCandle.time as any).timestamp || 0;
+              if (currentTime < lastCandleTime) {
+                console.log('Ignoring old tick:', currentTime, '< last candle:', lastCandleTime);
+                return;
+              }
+            }
+            
             // Check if we need to start a new candle based on updateInterval
             if (!currentCandleRef.current || (currentTime - candleStartTimeRef.current) >= updateInterval) {
               // Get the opening price for the new candle
