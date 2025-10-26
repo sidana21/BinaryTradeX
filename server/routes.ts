@@ -114,9 +114,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { assetId } = req.params;
       
-      // Load last 1 hour of candles to show complete trend history
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      const priceData = await storage.getPriceDataSince(assetId, oneHourAgo);
+      // Load last 12 hours of candles to show complete trend history (like Pocket Option)
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+      const priceData = await storage.getPriceDataSince(assetId, twelveHoursAgo);
       
       // Convert to candle format
       const candles = priceData.map(pd => ({
