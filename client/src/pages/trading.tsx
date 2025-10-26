@@ -22,6 +22,7 @@ export default function TradingPage() {
   const [isTradingOpen, setIsTradingOpen] = useState(false);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [showDepositPrompt, setShowDepositPrompt] = useState(false);
   const chartRef = useRef<OtcChartRef>(null);
   
   useEffect(() => {
@@ -42,6 +43,23 @@ export default function TradingPage() {
     assetsLoading,
     tradesLoading,
   } = useTrading();
+
+  // Track completed demo trades and show deposit prompt after 5 trades
+  useEffect(() => {
+    if (!state.isDemoAccount) return; // Only for demo account
+    
+    const completedDemoTrades = tradeHistory.filter(
+      trade => trade.isDemo && trade.status !== 'open'
+    );
+    
+    // Show prompt after 5 completed trades (only once per session)
+    if (completedDemoTrades.length === 5 && !sessionStorage.getItem('depositPromptShown')) {
+      setTimeout(() => {
+        setShowDepositPrompt(true);
+        sessionStorage.setItem('depositPromptShown', 'true');
+      }, 1000); // Small delay for better UX
+    }
+  }, [tradeHistory, state.isDemoAccount]);
 
   const handlePriceUpdate = (price: number) => {
     setCurrentPrice(price);
@@ -451,6 +469,57 @@ export default function TradingPage() {
           balance={currentBalance}
           onClose={() => setIsWalletOpen(false)}
         />
+      )}
+
+      {/* Deposit Prompt Modal - Pocket Option Style */}
+      {showDepositPrompt && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-[#0f1535] rounded-2xl p-6 max-w-md w-full relative border border-[#1a1f3a] shadow-2xl animate-in zoom-in-95 duration-300">
+            {/* Close button */}
+            <button
+              onClick={() => setShowDepositPrompt(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#1a1f3a] hover:bg-[#252b4a] flex items-center justify-center transition-colors group"
+            >
+              <X className="w-4 h-4 text-gray-400 group-hover:text-white" />
+            </button>
+
+            {/* Thumbs up icon */}
+            <div className="flex justify-center mb-4">
+              <div className="w-20 h-20 rounded-full bg-blue-500/20 flex items-center justify-center">
+                <svg className="w-12 h-12 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 11H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h3" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Title and message */}
+            <h2 className="text-2xl font-bold text-white text-center mb-2">
+              أحسنت! 
+            </h2>
+            <p className="text-gray-300 text-center mb-6 leading-relaxed">
+              لا تفوت فرصتك للحصول على أرباح حقيقية!
+            </p>
+
+            {/* Invest button */}
+            <button
+              onClick={() => {
+                setShowDepositPrompt(false);
+                setIsWalletOpen(true);
+              }}
+              className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold py-4 rounded-xl transition-all duration-200 transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-green-500/20"
+            >
+              استثمر أموال حقيقية
+            </button>
+
+            {/* Continue demo button */}
+            <button
+              onClick={() => setShowDepositPrompt(false)}
+              className="w-full mt-3 text-gray-400 hover:text-white py-3 rounded-xl transition-colors text-sm"
+            >
+              مواصلة التداول التجريبي
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
