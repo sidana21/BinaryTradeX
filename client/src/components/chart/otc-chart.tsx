@@ -296,16 +296,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                 }
               } else if (candleBufferRef.current.length > 0) {
                 // If no current candle but we have historical data
+                // ALWAYS continue from the last candle's close price for smooth continuity
                 const lastCandle = candleBufferRef.current[candleBufferRef.current.length - 1];
-                const lastCandleTime = typeof lastCandle.time === 'number' ? lastCandle.time : (lastCandle.time as any).timestamp || 0;
-                const timeDiff = currentTime - lastCandleTime;
-                
-                // When changing pair: always continue from last historical price for smooth transition
-                // When refreshing: only continue if data is recent (within 2x interval)
-                if (isPairChangeRef.current || timeDiff <= updateInterval * 2) {
-                  openPrice = lastCandle.close;
-                }
-                // Otherwise (old data on refresh), start fresh with current price
+                openPrice = lastCandle.close;
               }
               
               // Reset pair change flag after first candle
