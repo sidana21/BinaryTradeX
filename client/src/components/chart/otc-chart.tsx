@@ -367,7 +367,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     };
     
     loadCandles();
-    setTrades([]);
+    // Don't clear trades - they should persist across asset changes
   }, [pair]);
 
   // Reset current candle when update interval changes
