@@ -452,8 +452,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     const visibleRange = timeScale.getVisibleRange();
     if (!visibleRange) return;
 
-    // Draw professional circles with glow for each trade
-    trades.forEach((t) => {
+    // Draw professional circles with glow for each trade on current asset only
+    const currentAssetTrades = trades.filter(t => t.assetId === `${pair}_OTC`);
+    currentAssetTrades.forEach((t) => {
       
       // Only draw entry circle for active trades
       if (!t.result) {
@@ -635,7 +636,6 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     } else {
       // Add indicator
       setActiveIndicators([...activeIndicators, indicator]);
-      updateIndicators([...activeIndicators, indicator]);
     }
   };
 
@@ -749,9 +749,10 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     }
   }, [candleBufferRef.current.length, activeIndicators]);
 
-  // Calculate countdown and profit/loss for active trades
-  const activeTrades = trades.filter(t => !t.result);
-  const completedTrades = trades.filter(t => t.result);
+  // Calculate countdown and profit/loss for active trades on current asset
+  const currentAssetTrades = trades.filter(t => t.assetId === `${pair}_OTC`);
+  const activeTrades = currentAssetTrades.filter(t => !t.result);
+  const completedTrades = currentAssetTrades.filter(t => t.result);
 
   return (
     <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative">
