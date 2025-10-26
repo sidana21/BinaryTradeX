@@ -115,18 +115,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { assetId } = req.params;
       
-      // Load only last 5 minutes of candles to show current trend (prevents chart jumping on refresh)
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      const priceData = await storage.getPriceDataSince(assetId, fiveMinutesAgo);
+      // Load last 100 candles for persistent chart (newest first from DB)
+      const priceData = await storage.getPriceData(assetId, 100);
       
-      // Convert to candle format
+      // Convert to candle format and reverse to get oldest-to-newest order
       const candles = priceData.map(pd => ({
         time: Math.floor(new Date(pd.timestamp).getTime() / 1000),
         open: parseFloat(pd.open),
         high: parseFloat(pd.high),
         low: parseFloat(pd.low),
         close: parseFloat(pd.close),
-      }));
+      })).reverse(); // Reverse because DB returns newest first
       
       res.json(candles);
     } catch (error) {
