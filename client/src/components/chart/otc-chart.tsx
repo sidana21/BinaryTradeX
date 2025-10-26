@@ -14,6 +14,7 @@ interface Candle {
 interface Trade {
   id: number;
   type: "buy" | "sell";
+  assetId: string;
   entryPrice: number;
   entryTime: number;
   exitTime: number;
@@ -75,6 +76,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       const newTrade: Trade = {
         id: ++tradeIdRef.current,
         type,
+        assetId: `${pair}_OTC`,
         entryPrice: lastPrice,
         entryTime,
         exitTime,
