@@ -1077,11 +1077,13 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   return (
     <div className="w-full h-full bg-[#0c1e3e] flex flex-col relative">
       {/* Chart Indicators & Drawing Tools */}
-      <ChartIndicators
-        onIndicatorToggle={handleIndicatorToggle}
-        onDrawingToolSelect={handleDrawingToolSelect}
-        activeIndicators={activeIndicators}
-      />
+      <div className="relative z-20">
+        <ChartIndicators
+          onIndicatorToggle={handleIndicatorToggle}
+          onDrawingToolSelect={handleDrawingToolSelect}
+          activeIndicators={activeIndicators}
+        />
+      </div>
       
       {/* Update Interval Selector */}
       <div className="absolute top-2 right-2 z-10">
