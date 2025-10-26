@@ -325,8 +325,6 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             // Check if we need to start a new candle based on updateInterval
             if (!currentCandleRef.current || (currentTime - candleStartTimeRef.current) >= updateInterval) {
               // Get the opening price for the new candle
-              // ONLY use previous close if we have a current candle (ensures same asset)
-              // Otherwise start fresh with current price to avoid price jumps
               let openPrice = price;
               
               // Save previous candle if exists
@@ -340,9 +338,13 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                 if (candleBufferRef.current.length > 300) {
                   candleBufferRef.current = candleBufferRef.current.slice(-300);
                 }
+              } else if (candleBufferRef.current.length > 0) {
+                // If no current candle but we have buffer (loaded from DB), use last close price
+                const lastBufferedCandle = candleBufferRef.current[candleBufferRef.current.length - 1];
+                openPrice = lastBufferedCandle.close;
+                console.log('Using last DB candle close as starting point:', openPrice);
               }
-              // If no current candle, start fresh with current price
-              // This prevents using old data from buffer after page refresh or asset change
+              // Otherwise start fresh with current WebSocket price
               
               // Reset pair change flag after first candle
               if (isPairChangeRef.current) {
@@ -488,15 +490,74 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         }
       }
     } else {
-      // Start fresh - don't load old data from database on page refresh
-      console.log('Starting fresh chart for', pair, '- will build from live WebSocket data only');
-      candleBufferRef.current = [];
-      currentCandleRef.current = null;
-      candleStartTimeRef.current = 0;
-      if (seriesRef.current) {
-        seriesRef.current.setData([]);
-        setLastPrice(0);
-      }
+      // Load last 100 candles from database for persistence
+      const loadCandles = async () => {
+        try {
+          const response = await fetch(`/api/price-data/${pair}_OTC`);
+          if (response.ok) {
+            const candles = await response.json();
+            console.log('Loaded', candles.length, 'candles from database for', pair);
+            
+            if (candles.length > 0) {
+              // Remove duplicates and sort by time (ascending)
+              const uniqueCandles = candles.reduce((acc: CandlestickData[], current: CandlestickData) => {
+                const exists = acc.find(c => c.time === current.time);
+                if (!exists) {
+                  acc.push(current);
+                }
+                return acc;
+              }, []).sort((a: CandlestickData, b: CandlestickData) => {
+                const timeA = typeof a.time === 'number' ? a.time : (a.time as any).timestamp || 0;
+                const timeB = typeof b.time === 'number' ? b.time : (b.time as any).timestamp || 0;
+                return timeA - timeB;
+              });
+              
+              candleBufferRef.current = uniqueCandles;
+              currentCandleRef.current = null;
+              
+              // Set candleStartTime to the timestamp of the last candle
+              const lastCandle = uniqueCandles[uniqueCandles.length - 1];
+              const lastCandleTime = typeof lastCandle.time === 'number' ? lastCandle.time : (lastCandle.time as any).timestamp || 0;
+              candleStartTimeRef.current = lastCandleTime;
+              
+              if (seriesRef.current) {
+                seriesRef.current.setData(uniqueCandles);
+                setLastPrice(lastCandle.close);
+                
+                // Auto-scroll to the latest candle after loading data
+                if (chartRef.current) {
+                  setTimeout(() => {
+                    chartRef.current?.timeScale().scrollToRealTime();
+                  }, 100);
+                }
+              }
+              
+              console.log('Chart initialized with', uniqueCandles.length, 'candles. Last price:', lastCandle.close, 'Last time:', lastCandleTime);
+            } else {
+              // No data in database, start fresh
+              candleBufferRef.current = [];
+              currentCandleRef.current = null;
+              candleStartTimeRef.current = 0;
+              if (seriesRef.current) {
+                seriesRef.current.setData([]);
+                setLastPrice(0);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error loading candles from database:', error);
+          // On error, start fresh
+          candleBufferRef.current = [];
+          currentCandleRef.current = null;
+          candleStartTimeRef.current = 0;
+          if (seriesRef.current) {
+            seriesRef.current.setData([]);
+            setLastPrice(0);
+          }
+        }
+      };
+      
+      loadCandles();
     }
     // Don't clear trades - they should persist across asset changes
   }, [pair]);
