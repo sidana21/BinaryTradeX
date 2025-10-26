@@ -64,6 +64,20 @@ export const deposits = pgTable("deposits", {
   completedAt: timestamp("completed_at"),
 });
 
+export const withdrawals = pgTable("withdrawals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  address: text("address").notNull(), // Destination wallet address
+  method: text("method").notNull(), // 'USDT_TRC20', 'USDT_ERC20', 'USDT_BEP20'
+  status: text("status").default("pending"), // 'pending', 'processing', 'completed', 'rejected'
+  transactionHash: text("transaction_hash"),
+  fee: decimal("fee", { precision: 10, scale: 2 }).default("1.00"), // Withdrawal fee
+  notes: text("notes"), // Admin notes for rejection reasons
+  createdAt: timestamp("created_at").defaultNow(),
+  processedAt: timestamp("processed_at"),
+});
+
 export const settings = pgTable("settings", {
   id: varchar("id").primaryKey().default("default"),
   winRate: decimal("win_rate", { precision: 5, scale: 2 }).default("20.00"), // Win rate percentage (e.g., 20.00 = 20%)
@@ -98,6 +112,13 @@ export const insertDepositSchema = createInsertSchema(deposits).omit({
   completedAt: true,
 });
 
+export const insertWithdrawalSchema = createInsertSchema(withdrawals).omit({
+  id: true,
+  createdAt: true,
+  processedAt: true,
+  transactionHash: true,
+});
+
 export const insertSettingsSchema = createInsertSchema(settings).omit({
   updatedAt: true,
 });
@@ -117,6 +138,8 @@ export type InsertPriceData = z.infer<typeof insertPriceDataSchema>;
 export type PriceData = typeof priceData.$inferSelect;
 export type InsertDeposit = z.infer<typeof insertDepositSchema>;
 export type Deposit = typeof deposits.$inferSelect;
+export type InsertWithdrawal = z.infer<typeof insertWithdrawalSchema>;
+export type Withdrawal = typeof withdrawals.$inferSelect;
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;
 export type UpdateSettings = z.infer<typeof updateSettingsSchema>;
 export type Settings = typeof settings.$inferSelect;

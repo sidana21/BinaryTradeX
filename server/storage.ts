@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Asset, type InsertAsset, type Trade, type InsertTrade, type PriceData, type InsertPriceData, type Deposit, type InsertDeposit, type Settings, type UpdateSettings, users, assets, trades, priceData as priceDataTable, deposits, settings as settingsTable } from "@shared/schema";
+import { type User, type InsertUser, type Asset, type InsertAsset, type Trade, type InsertTrade, type PriceData, type InsertPriceData, type Deposit, type InsertDeposit, type Withdrawal, type InsertWithdrawal, type Settings, type UpdateSettings, users, assets, trades, priceData as priceDataTable, deposits, withdrawals, settings as settingsTable } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
@@ -36,6 +36,13 @@ export interface IStorage {
   createDeposit(deposit: InsertDeposit): Promise<Deposit>;
   updateDepositStatus(id: string, status: string, completedAt?: Date): Promise<Deposit | undefined>;
   getAllDeposits(): Promise<Deposit[]>;
+
+  // Withdrawals
+  getWithdrawal(id: string): Promise<Withdrawal | undefined>;
+  getWithdrawalsByUser(userId: string): Promise<Withdrawal[]>;
+  createWithdrawal(withdrawal: InsertWithdrawal): Promise<Withdrawal>;
+  updateWithdrawalStatus(id: string, status: string, processedAt?: Date, transactionHash?: string, notes?: string): Promise<Withdrawal | undefined>;
+  getAllWithdrawals(): Promise<Withdrawal[]>;
 
   // Settings
   getSettings(): Promise<Settings>;
@@ -288,6 +295,57 @@ export class DbStorage implements IStorage {
 
   async getAllDeposits(): Promise<Deposit[]> {
     return await this.db.select().from(deposits).orderBy(desc(deposits.createdAt));
+  }
+
+  async getWithdrawal(id: string): Promise<Withdrawal | undefined> {
+    const result = await this.db.select().from(withdrawals).where(eq(withdrawals.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getWithdrawalsByUser(userId: string): Promise<Withdrawal[]> {
+    return await this.db.select().from(withdrawals)
+      .where(eq(withdrawals.userId, userId))
+      .orderBy(desc(withdrawals.createdAt));
+  }
+
+  async createWithdrawal(insertWithdrawal: InsertWithdrawal): Promise<Withdrawal> {
+    const id = randomUUID();
+    const result = await this.db.insert(withdrawals).values({
+      id,
+      userId: insertWithdrawal.userId,
+      amount: insertWithdrawal.amount,
+      address: insertWithdrawal.address,
+      method: insertWithdrawal.method,
+      status: insertWithdrawal.status ?? "pending",
+      fee: insertWithdrawal.fee ?? "1.00",
+      notes: insertWithdrawal.notes ?? null,
+      processedAt: null,
+      transactionHash: null,
+    }).returning();
+    return result[0];
+  }
+
+  async updateWithdrawalStatus(
+    id: string,
+    status: string,
+    processedAt?: Date,
+    transactionHash?: string,
+    notes?: string
+  ): Promise<Withdrawal | undefined> {
+    const result = await this.db.update(withdrawals)
+      .set({
+        status,
+        ...(processedAt && { processedAt }),
+        ...(transactionHash && { transactionHash }),
+        ...(notes && { notes }),
+      })
+      .where(eq(withdrawals.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async getAllWithdrawals(): Promise<Withdrawal[]> {
+    return await this.db.select().from(withdrawals).orderBy(desc(withdrawals.createdAt));
   }
 
   async getSettings(): Promise<Settings> {

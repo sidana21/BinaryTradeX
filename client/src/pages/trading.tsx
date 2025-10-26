@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Logo } from '@/components/ui/logo';
 import { AssetIcon } from '@/components/ui/asset-icon';
+import { DepositWithdraw } from '@/components/wallet/deposit-withdraw';
 import { ExternalLink, Menu, X, Wallet, UserCircle } from 'lucide-react';
 import type { Asset } from '@shared/schema';
 import OtcChart, { OtcChartRef } from '@/components/chart/otc-chart';
@@ -19,6 +20,7 @@ export default function TradingPage() {
   const { lastMessage } = useWebSocket('/ws');
   const [isAssetsOpen, setIsAssetsOpen] = useState(false);
   const [isTradingOpen, setIsTradingOpen] = useState(false);
+  const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const chartRef = useRef<OtcChartRef>(null);
   
@@ -133,11 +135,13 @@ export default function TradingPage() {
           </button>
 
           {/* Right - Wallet */}
-          <Link href="/deposit">
-            <button className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center" data-testid="button-wallet">
-              <Wallet className="text-emerald-400 w-6 h-6" />
-            </button>
-          </Link>
+          <button 
+            onClick={() => setIsWalletOpen(true)}
+            className="w-12 h-12 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 flex items-center justify-center transition-colors" 
+            data-testid="button-wallet"
+          >
+            <Wallet className="text-emerald-400 w-6 h-6" />
+          </button>
         </div>
       </header>
 
@@ -404,6 +408,14 @@ export default function TradingPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Wallet Modal - Deposit/Withdraw */}
+      {isWalletOpen && (
+        <DepositWithdraw
+          balance={currentBalance}
+          onClose={() => setIsWalletOpen(false)}
+        />
+      )}
     </div>
   );
 }

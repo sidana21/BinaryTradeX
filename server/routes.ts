@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertTradeSchema, insertDepositSchema, updateSettingsSchema, type Trade } from "@shared/schema";
+import { insertTradeSchema, insertDepositSchema, insertWithdrawalSchema, updateSettingsSchema, type Trade } from "@shared/schema";
 import { z } from "zod";
 import axios from "axios";
 
@@ -528,6 +528,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid status", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to update deposit status" });
+    }
+  });
+
+  // Withdrawal endpoints
+  app.post("/api/withdrawals", async (req, res) => {
+    try {
+      const validated = insertWithdrawalSchema.parse(req.body);
+      
+      const user = await storage.getUser(validated.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Check if user has sufficient balance
+      const currentBalance = parseFloat(user.realBalance || "0");
+      const withdrawAmount = parseFloat(validated.amount);
+      const fee = parseFloat(validated.fee || "1");
+      const totalAmount = withdrawAmount + fee;
+
+      if (currentBalance < totalAmount) {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
+
+      const withdrawal = await storage.createWithdrawal(validated);
+      
+      // Deduct amount immediately when withdrawal is requested
+      const newBalance = (currentBalance - totalAmount).toFixed(2);
+      await storage.updateUserBalance(validated.userId, user.demoBalance || "10000.00", newBalance);
+
+      res.json(withdrawal);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid withdrawal data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create withdrawal" });
+    }
+  });
+
+  app.get("/api/withdrawals/user/:userId", async (req, res) => {
+    try {
+      const withdrawals = await storage.getWithdrawalsByUser(req.params.userId);
+      res.json(withdrawals);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch withdrawals" });
+    }
+  });
+
+  const withdrawalStatusSchema = z.object({
+    status: z.enum(['pending', 'processing', 'completed', 'rejected']),
+    transactionHash: z.string().optional(),
+    notes: z.string().optional(),
+  });
+
+  app.patch("/api/withdrawals/:id/status", async (req, res) => {
+    try {
+      const { status, transactionHash, notes } = withdrawalStatusSchema.parse(req.body);
+      const withdrawal = await storage.getWithdrawal(req.params.id);
+      
+      if (!withdrawal) {
+        return res.status(404).json({ message: "Withdrawal not found" });
+      }
+
+      const user = await storage.getUser(withdrawal.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const processedAt = status === "completed" || status === "rejected" ? new Date() : undefined;
+      const updatedWithdrawal = await storage.updateWithdrawalStatus(
+        req.params.id,
+        status,
+        processedAt,
+        transactionHash,
+        notes
+      );
+
+      // If rejected, refund the amount to user
+      if (status === "rejected") {
+        const refundAmount = parseFloat(withdrawal.amount) + parseFloat(withdrawal.fee || "1");
+        const newRealBalance = (parseFloat(user.realBalance || "0") + refundAmount).toFixed(2);
+        await storage.updateUserBalance(withdrawal.userId, user.demoBalance || "10000.00", newRealBalance);
+      }
+
+      res.json(updatedWithdrawal);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid status", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update withdrawal status" });
     }
   });
 
