@@ -59,8 +59,8 @@ export default function TradingPage() {
       promptShown: sessionStorage.getItem('depositPromptShown')
     });
     
-    // Show prompt after 2 completed trades (testing - change back to 5 for production)
-    if (completedDemoTrades.length >= 2 && !sessionStorage.getItem('depositPromptShown')) {
+    // Show prompt after 5 completed trades (only once per session)
+    if (completedDemoTrades.length >= 5 && !sessionStorage.getItem('depositPromptShown')) {
       console.log('🎉 Showing deposit prompt!');
       setTimeout(() => {
         setShowDepositPrompt(true);
