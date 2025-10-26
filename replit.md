@@ -5,6 +5,15 @@
 This is a binary options trading platform built with a React frontend and Express backend. The application allows users to trade on various financial assets (forex, crypto, commodities, indices) with real-time price updates via WebSocket. Users can execute CALL/PUT trades with configurable expiry times, manage demo and real account balances, and track their trading history.
 
 **Recent Updates (Oct 26, 2025)**:
+- **Trade Duration Fix**: Temps selector now correctly changes trade expiration time
+  - **Duration Prop**: Trading page now passes selected timeframe (1m/5m/15m) to OtcChart as duration prop
+  - **Conversion Function**: Added getTradeDuration() to convert timeframe strings to seconds (60/300/900)
+  - **Dynamic Expiry**: Trade exitTime now properly calculated based on selected duration instead of fixed 60 seconds
+  - **User Experience**: Changing Temps from 1M to 5M or 15M now correctly adjusts trade duration
+- **Pocket Option-Style Notifications**: Fast win/loss notifications with no delay popups
+  - **Visual Design**: Green gradient for wins, red for losses, with animated icons (✓/✗)
+  - **Auto-Dismiss**: Appears at top center, automatically fades out after 2.5 seconds
+  - **Multiple Notifications**: Can display multiple notifications simultaneously
 - **USDT Deposit/Withdrawal System**: Complete cryptocurrency payment integration
   - **Deposit Interface**: QR code generation for USDT deposits with TRC20/ERC20/BEP20 network support
   - **Withdrawal Interface**: Secure withdrawal requests with address validation and fee calculation
