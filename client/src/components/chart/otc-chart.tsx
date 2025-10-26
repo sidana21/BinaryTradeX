@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { createChart, IChartApi, ISeriesApi, CandlestickData, CandlestickSeries, createSeriesMarkers, LineData } from "lightweight-charts";
 import { ChartIndicators, Indicator, DrawingTool, calculateMA, calculateEMA, calculateRSI, calculateBollingerBands } from './chart-indicators';
+import { InteractiveDrawingTools } from './interactive-drawing-tools';
 
 interface Candle {
   pair: string;
@@ -935,6 +936,34 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     setActiveTool(tool.type);
   };
 
+  // وظائف تحويل الإحداثيات للأدوات التفاعلية
+  const timeToX = (time: number): number | null => {
+    if (!chartRef.current) return null;
+    const timeScale = chartRef.current.timeScale();
+    return timeScale.timeToCoordinate(time as any);
+  };
+
+  const priceToY = (price: number): number | null => {
+    if (!seriesRef.current) return null;
+    return seriesRef.current.priceToCoordinate(price);
+  };
+
+  const xToTime = (x: number): number | null => {
+    if (!chartRef.current) return null;
+    const timeScale = chartRef.current.timeScale();
+    const time = timeScale.coordinateToTime(x);
+    return time ? (time as number) : null;
+  };
+
+  const yToPrice = (y: number): number | null => {
+    if (!seriesRef.current) return null;
+    return seriesRef.current.coordinateToPrice(y);
+  };
+
+  const handleDrawingComplete = () => {
+    setActiveTool(null);
+  };
+
   // Check if point is near a coordinate (for handle detection)
   const isNearPoint = (px: number, py: number, x: number, y: number, threshold = 15) => {
     return Math.sqrt((px - x) ** 2 + (py - y) ** 2) < threshold;
@@ -1197,19 +1226,21 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
 
       <div className="flex-1 w-full min-h-[350px] relative">
         <div ref={containerRef} className="absolute inset-0" data-testid="otc-chart" />
-        <canvas 
-          ref={canvasRef} 
-          className="absolute inset-0 z-10"
-          style={{  
-            width: '100%', 
-            height: '100%',
-            pointerEvents: 'auto',
-            cursor: activeTool ? 'crosshair' : (dragHandle ? 'move' : 'default')
-          }}
-          onMouseDown={handleCanvasMouseDown}
-          onMouseMove={handleCanvasMouseMove}
-          onMouseUp={handleCanvasMouseUp}
-        />
+        
+        {/* Interactive Drawing Tools */}
+        <div className="absolute inset-0 z-10" style={{ pointerEvents: 'none' }}>
+          <InteractiveDrawingTools
+            containerRef={containerRef}
+            chartWidth={containerRef.current?.clientWidth || 800}
+            chartHeight={containerRef.current?.clientHeight || 400}
+            activeDrawingTool={activeTool}
+            onDrawingComplete={handleDrawingComplete}
+            timeToX={timeToX}
+            priceToY={priceToY}
+            xToTime={xToTime}
+            yToPrice={yToPrice}
+          />
+        </div>
       </div>
 
       {/* Countdown timer overlay for active trades */}
