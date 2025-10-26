@@ -25,10 +25,26 @@ const setStoredBalance = (key: string, value: number) => {
   }
 };
 
+const getStoredAsset = (): Asset | null => {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem('selectedAsset');
+  return stored ? JSON.parse(stored) : null;
+};
+
+const setStoredAsset = (asset: Asset | null) => {
+  if (typeof window !== 'undefined') {
+    if (asset) {
+      localStorage.setItem('selectedAsset', JSON.stringify(asset));
+    } else {
+      localStorage.removeItem('selectedAsset');
+    }
+  }
+};
+
 export function useTrading() {
   const queryClient = useQueryClient();
   const [state, setState] = useState<TradingState>({
-    selectedAsset: null,
+    selectedAsset: getStoredAsset(),
     selectedTimeframe: '1m',
     tradeAmount: 100,
     isDemoAccount: true,
@@ -208,7 +224,14 @@ export function useTrading() {
   };
 
   const updateState = (updates: Partial<TradingState>) => {
-    setState(prev => ({ ...prev, ...updates }));
+    setState(prev => {
+      const newState = { ...prev, ...updates };
+      // حفظ الأصل المختار في localStorage
+      if (updates.selectedAsset !== undefined) {
+        setStoredAsset(updates.selectedAsset);
+      }
+      return newState;
+    });
   };
 
   const toggleAccount = () => {
@@ -218,7 +241,9 @@ export function useTrading() {
   // Set default selected asset when assets load
   useEffect(() => {
     if (assets.length > 0 && !state.selectedAsset) {
-      setState(prev => ({ ...prev, selectedAsset: assets[0] }));
+      const defaultAsset = assets[0];
+      setState(prev => ({ ...prev, selectedAsset: defaultAsset }));
+      setStoredAsset(defaultAsset);
     }
   }, [assets, state.selectedAsset]);
 
