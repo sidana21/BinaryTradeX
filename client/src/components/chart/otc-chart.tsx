@@ -110,6 +110,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         exitTime: Math.floor(new Date(dbTrade.expiryTime).getTime() / 1000),
       }));
       
+      console.log('DB Trade openPrice:', openTrades[0]?.openPrice, 'converted entryPrice:', convertedTrades[0]?.entryPrice);
+      console.log('Last price from chart:', lastPrice);
+      
       setTrades(convertedTrades);
       console.log('Loaded', convertedTrades.length, 'open trades from database');
     }
