@@ -62,6 +62,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const DEVICE_ID = process.env.BINOMO_DEVICE_ID || '';
   const HAS_CREDS = Boolean(AUTHTOKEN && DEVICE_ID);
 
+  // Current user endpoint - returns the authenticated user
+  // For now, returns demo_user. When authentication is added, this will check the session
+  app.get("/api/me", async (req, res) => {
+    // TODO: Replace with actual session/auth check when authentication is implemented
+    const user = await storage.getUser('demo_user');
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({
+      id: user.id,
+      username: user.username,
+      demoBalance: user.demoBalance,
+      realBalance: user.realBalance,
+    });
+  });
+
   app.get("/api/binomo/health", async (req, res) => {
     res.json({
       status: "ok",
@@ -470,9 +486,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Deposit endpoints
   app.post("/api/deposits", async (req, res) => {
     try {
-      const validated = insertDepositSchema.parse(req.body);
+      // Get authenticated user ID from server context
+      // TODO: Replace with actual session/auth check when authentication is implemented
+      const authenticatedUserId = 'demo_user';
       
-      const user = await storage.getUser(validated.userId);
+      // Parse request body but ignore any client-supplied userId
+      const { amount, method, status, transactionHash, walletAddress } = req.body;
+      
+      // Validate the deposit data using schema
+      const validated = insertDepositSchema.parse({
+        userId: authenticatedUserId, // Use server-authenticated user ID only
+        amount,
+        method,
+        status,
+        transactionHash,
+        walletAddress,
+      });
+      
+      const user = await storage.getUser(authenticatedUserId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -489,7 +520,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/deposits/user/:userId", async (req, res) => {
     try {
-      const deposits = await storage.getDepositsByUser(req.params.userId);
+      // Get authenticated user ID from server context
+      // TODO: Replace with actual session/auth check when authentication is implemented
+      const authenticatedUserId = 'demo_user';
+      
+      // Ignore the URL parameter and use authenticated user ID only
+      const deposits = await storage.getDepositsByUser(authenticatedUserId);
       res.json(deposits);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch deposits" });
@@ -534,9 +570,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Withdrawal endpoints
   app.post("/api/withdrawals", async (req, res) => {
     try {
-      const validated = insertWithdrawalSchema.parse(req.body);
+      // Get authenticated user ID from server context
+      // TODO: Replace with actual session/auth check when authentication is implemented
+      const authenticatedUserId = 'demo_user';
       
-      const user = await storage.getUser(validated.userId);
+      // Parse request body but ignore any client-supplied userId
+      const { amount, address, method, fee, notes } = req.body;
+      
+      // Validate the withdrawal data using schema
+      const validated = insertWithdrawalSchema.parse({
+        userId: authenticatedUserId, // Use server-authenticated user ID only
+        amount,
+        address,
+        method,
+        fee,
+        notes,
+      });
+      
+      const user = await storage.getUser(authenticatedUserId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -544,8 +595,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user has sufficient balance
       const currentBalance = parseFloat(user.realBalance || "0");
       const withdrawAmount = parseFloat(validated.amount);
-      const fee = parseFloat(validated.fee || "1");
-      const totalAmount = withdrawAmount + fee;
+      const withdrawFee = parseFloat(validated.fee || "1");
+      const totalAmount = withdrawAmount + withdrawFee;
 
       if (currentBalance < totalAmount) {
         return res.status(400).json({ message: "Insufficient balance" });
@@ -555,7 +606,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Deduct amount immediately when withdrawal is requested
       const newBalance = (currentBalance - totalAmount).toFixed(2);
-      await storage.updateUserBalance(validated.userId, user.demoBalance || "10000.00", newBalance);
+      await storage.updateUserBalance(authenticatedUserId, user.demoBalance || "10000.00", newBalance);
 
       res.json(withdrawal);
     } catch (error) {
@@ -568,7 +619,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/withdrawals/user/:userId", async (req, res) => {
     try {
-      const withdrawals = await storage.getWithdrawalsByUser(req.params.userId);
+      // Get authenticated user ID from server context
+      // TODO: Replace with actual session/auth check when authentication is implemented
+      const authenticatedUserId = 'demo_user';
+      
+      // Ignore the URL parameter and use authenticated user ID only
+      const withdrawals = await storage.getWithdrawalsByUser(authenticatedUserId);
       res.json(withdrawals);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch withdrawals" });

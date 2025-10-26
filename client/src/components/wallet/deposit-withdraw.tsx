@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, Check, Wallet, ArrowDownToLine, ArrowUpFromLine, QrCode } from 'lucide-react';
@@ -16,6 +16,23 @@ export function DepositWithdraw({ balance, onClose }: DepositWithdrawProps) {
   const [withdrawAddress, setWithdrawAddress] = useState('');
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Fetch current user on mount
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch('/api/me');
+        if (response.ok) {
+          const user = await response.json();
+          setCurrentUserId(user.id);
+        }
+      } catch (error) {
+        console.error('Failed to fetch current user:', error);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
 
   // عنوان الإيداع (في التطبيق الحقيقي، سيتم إنشاء عنوان فريد لكل مستخدم)
   const depositAddress = 'TYASr8VZJ7RdmJQcFz7TGFDdELvXaKfqVW'; // عنوان USDT TRC20 تجريبي
@@ -42,6 +59,16 @@ export function DepositWithdraw({ balance, onClose }: DepositWithdrawProps) {
 
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
+    
+    // Ensure we have a user ID
+    if (!currentUserId) {
+      toast({
+        title: 'خطأ',
+        description: 'يرجى تسجيل الدخول أولاً',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     // التحقق من المدخلات
     if (!withdrawAddress || withdrawAddress.length < 30) {
@@ -78,7 +105,7 @@ export function DepositWithdraw({ balance, onClose }: DepositWithdrawProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: 'demo_user',
+          userId: currentUserId,
           amount: amount.toString(),
           address: withdrawAddress,
           method: 'USDT_TRC20',
