@@ -167,7 +167,16 @@ export default function TradingPage() {
     });
   };
 
-  const currentBalance = state.isDemoAccount ? state.demoBalance : state.realBalance;
+  // للضيوف: فقط الحساب التجريبي
+  // للمستخدمين المسجلين: يمكنهم التبديل بين التجريبي والحقيقي
+  const currentBalance = (isGuest || state.isDemoAccount) ? state.demoBalance : state.realBalance;
+  
+  // فرض الحساب التجريبي للضيوف
+  useEffect(() => {
+    if (isGuest && !state.isDemoAccount) {
+      updateState({ isDemoAccount: true });
+    }
+  }, [isGuest, state.isDemoAccount, updateState]);
 
   return (
     <div className="h-screen bg-[#0a0e27] text-foreground flex flex-col overflow-hidden">
