@@ -115,9 +115,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { assetId } = req.params;
       
-      // Load last 12 hours of candles to show complete trend history (like Pocket Option)
-      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-      const priceData = await storage.getPriceDataSince(assetId, twelveHoursAgo);
+      // Load only last 5 minutes of candles to show current trend (prevents chart jumping on refresh)
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const priceData = await storage.getPriceDataSince(assetId, fiveMinutesAgo);
       
       // Convert to candle format
       const candles = priceData.map(pd => ({
@@ -445,17 +445,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedTrade);
     } catch (error) {
       res.status(500).json({ message: "Failed to close trade" });
-    }
-  });
-
-  // Get price data for asset
-  app.get("/api/price-data/:assetId", async (req, res) => {
-    try {
-      const limit = parseInt(req.query.limit as string) || 100;
-      const priceData = await storage.getPriceData(req.params.assetId, limit);
-      res.json(priceData);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch price data" });
     }
   });
 
