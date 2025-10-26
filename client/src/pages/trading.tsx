@@ -100,10 +100,8 @@ export default function TradingPage() {
       return;
     }
 
-    // Place trade marker on chart
-    const tradeType = type === 'CALL' ? 'buy' : 'sell';
-    chartRef.current?.placeTrade(tradeType);
-
+    // إنشاء الصفقة في قاعدة البيانات فقط
+    // الرسم البياني سيحمّلها تلقائياً من openTrades
     executeTrade(type);
     
     toast({
