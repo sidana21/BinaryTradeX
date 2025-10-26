@@ -5,6 +5,27 @@
 This is a binary options trading platform built with a React frontend and Express backend. The application allows users to trade on various financial assets (forex, crypto, commodities, indices) with real-time price updates via WebSocket. Users can execute CALL/PUT trades with configurable expiry times, manage demo and real account balances, and track their trading history.
 
 **Recent Updates (Oct 26, 2025)**:
+- **User Registration System**: Complete email-based signup with bonus rewards
+  - **Database Schema**: Added email field to users table (unique, required)
+  - **Sign-Up Page**: Professional Arabic UI with username, email, password validation
+  - **Backend API**: `/api/auth/signup` endpoint with duplicate checking and validation
+  - **Welcome Bonus**: New users receive +$200 bonus (10,200 demo balance instead of 10,000)
+  - **Landing Page Integration**: "إنشاء حساب" buttons in hero and CTA sections
+  - **Email Validation**: Checks for existing usernames and emails before registration
+  - **User Experience**: Smooth registration flow with success toast and auto-redirect to trading
+- **Profile Button Relocation**: Mobile-optimized UI update
+  - **Header Integration**: Profile button now appears in top header bar next to wallet button
+  - **Mobile Friendly**: Consistent positioning for easy thumb access on mobile devices
+  - **User Experience**: Quick access to profile from trading page without scrolling
+- **Demo Prompt Timing Fix**: Immediate notification after 3rd trade
+  - **Trigger Logic**: Changed from 5 trades to 3 trades for faster engagement
+  - **Instant Display**: Removed 1-second delay, prompt shows immediately with trade result
+  - **User Experience**: More responsive feedback encourages real account conversion
+- **12-Hour Chart History**: Professional trading platform experience
+  - **Data Loading**: Changed from 30 seconds to 12 hours (~43,200 candles)
+  - **API Update**: Modified `twelveHoursAgo` in routes.ts for extended history
+  - **Chart Continuity**: Maintains proper trend direction on refresh, no jumping
+  - **Professional Feel**: Matches industry standards like Pocket Option
 - **Chart Refresh Fix**: Resolved chart jumping to old candles on page refresh
   - **Root Cause**: API was loading last 300 candles by count, which could be 10-15 minutes old
   - **Solution**: Added time-based data loading - now loads only candles from last 5 minutes
@@ -127,8 +148,10 @@ Preferred communication style: Simple, everyday language.
 **Users Table**
 - UUID primary key with auto-generation
 - Unique username constraint for authentication
+- Unique email field (required) for registration and contact
 - Separate demo and real balance tracking (decimal precision for currency)
 - Password storage (hashed in production implementation)
+- New users receive +$200 bonus (10,200 demo balance)
 
 **Assets Table**
 - String-based primary key (e.g., "EURUSD", "BTCUSD")
