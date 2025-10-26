@@ -215,23 +215,34 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             
             // Check if we need to start a new candle based on updateInterval
             if (!currentCandleRef.current || (currentTime - candleStartTimeRef.current) >= updateInterval) {
+              // Get the opening price for the new candle
+              // It should be the closing price of the previous candle for continuity
+              let openPrice = price;
+              
               // Save previous candle if exists
               if (currentCandleRef.current) {
+                // Use the close price of the previous candle as the open price for the new candle
+                openPrice = currentCandleRef.current.close;
+                
                 candleBufferRef.current.push(currentCandleRef.current);
                 
                 // Keep only last 100 candles for performance
                 if (candleBufferRef.current.length > 100) {
                   candleBufferRef.current = candleBufferRef.current.slice(-100);
                 }
+              } else if (candleBufferRef.current.length > 0) {
+                // If no current candle but we have historical data, use the last candle's close price
+                const lastCandle = candleBufferRef.current[candleBufferRef.current.length - 1];
+                openPrice = lastCandle.close;
               }
               
-              // Start new candle
+              // Start new candle with continuity
               candleStartTimeRef.current = currentTime;
               currentCandleRef.current = {
                 time: currentTime as any,
-                open: price,
-                high: price,
-                low: price,
+                open: openPrice,
+                high: Math.max(openPrice, price),
+                low: Math.min(openPrice, price),
                 close: price,
               };
             } else {
