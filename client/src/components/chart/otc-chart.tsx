@@ -66,6 +66,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isMobile = useRef(window.innerWidth < 768);
   const indicatorSeriesRef = useRef<Record<string, any>>({});
+  const isPairChangeRef = useRef(false); // Flag to track when pair changes
   
   // Store candles for each pair separately
   const pairCandlesRef = useRef<Record<string, {
@@ -239,7 +240,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                 if (candleBufferRef.current.length > 100) {
                   candleBufferRef.current = candleBufferRef.current.slice(-100);
                 }
-              } else if (candleBufferRef.current.length > 0) {
+              } else if (candleBufferRef.current.length > 0 && !isPairChangeRef.current) {
                 // If no current candle but we have historical data, check if it's recent
                 const lastCandle = candleBufferRef.current[candleBufferRef.current.length - 1];
                 const lastCandleTime = typeof lastCandle.time === 'number' ? lastCandle.time : (lastCandle.time as any).timestamp || 0;
@@ -251,6 +252,11 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                   openPrice = lastCandle.close;
                 }
                 // Otherwise, start fresh with current price to avoid abnormal jumps
+              }
+              
+              // Reset pair change flag after first candle
+              if (isPairChangeRef.current) {
+                isPairChangeRef.current = false;
               }
               
               // Start new candle with continuity
@@ -349,6 +355,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   useEffect(() => {
     console.log('Chart pair changed to:', pair);
     currentPairRef.current = pair;
+    isPairChangeRef.current = true; // Mark that pair has changed
     
     // Load candles from database for this asset
     const loadCandles = async () => {
