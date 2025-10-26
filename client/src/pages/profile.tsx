@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ArrowLeft, User, Mail, Phone, Globe, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,12 +8,38 @@ import { useToast } from '@/hooks/use-toast';
 export default function ProfilePage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     phone: '',
     country: '',
   });
+
+  // Fetch current user data
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const user = await response.json();
+          setCurrentUser(user);
+          // Pre-fill email from user data
+          setFormData(prev => ({
+            ...prev,
+            email: user.email || '',
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUser();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,8 +98,22 @@ export default function ProfilePage() {
           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-blue-500 flex items-center justify-center mb-3">
             <i className="fas fa-user text-white text-3xl"></i>
           </div>
-          <h2 className="text-xl font-bold mb-1">demo_user</h2>
-          <p className="text-sm text-gray-400">مستخدم تجريبي</p>
+          {loading ? (
+            <div className="animate-pulse">
+              <div className="h-6 w-32 bg-gray-700 rounded mb-2"></div>
+              <div className="h-4 w-24 bg-gray-700 rounded mx-auto"></div>
+            </div>
+          ) : currentUser ? (
+            <>
+              <h2 className="text-xl font-bold mb-1">{currentUser.username}</h2>
+              <p className="text-sm text-gray-400">{currentUser.email}</p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl font-bold mb-1">ضيف</h2>
+              <p className="text-sm text-gray-400">غير مسجل الدخول</p>
+            </>
+          )}
         </div>
 
         {/* Profile Form */}
