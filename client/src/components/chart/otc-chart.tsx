@@ -101,8 +101,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   useEffect(() => {
     if (openTrades && openTrades.length > 0) {
       // تحويل الصفقات من قاعدة البيانات إلى صيغة Trade المحلية
-      const convertedTrades: Trade[] = openTrades.map((dbTrade, index) => ({
-        id: tradeIdRef.current + index + 1,
+      // استخدام ID الحقيقي من قاعدة البيانات (string UUID) كـ ID
+      const convertedTrades: Trade[] = openTrades.map((dbTrade) => ({
+        id: dbTrade.id, // ✅ استخدام ID الفعلي من قاعدة البيانات
         type: dbTrade.type === 'CALL' ? 'buy' : 'sell',
         assetId: dbTrade.assetId,
         entryPrice: parseFloat(dbTrade.openPrice),
@@ -110,24 +111,26 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         exitTime: Math.floor(new Date(dbTrade.expiryTime).getTime() / 1000),
       }));
       
-      // تحديث tradeIdRef
-      if (convertedTrades.length > 0) {
-        tradeIdRef.current = Math.max(...convertedTrades.map(t => t.id));
-      }
-      
       // دمج الصفقات المفتوحة مع الصفقات المحلية (إن وجدت)
       setTrades(prevTrades => {
-        // فقط أضف الصفقات التي ليست موجودة بالفعل
-        const newTrades = convertedTrades.filter(ct => 
-          !prevTrades.some(pt => 
-            pt.assetId === ct.assetId && 
-            pt.entryTime === ct.entryTime
-          )
+        // فقط أضف الصفقات التي ليست موجودة بالفعل (بناءً على ID الفعلي)
+        const existingIds = new Set(prevTrades.map(pt => pt.id));
+        const newTrades = convertedTrades.filter(ct => !existingIds.has(ct.id));
+        
+        // حذف الصفقات المغلقة (التي لم تعد في openTrades)
+        const currentDbIds = new Set(convertedTrades.map(ct => ct.id));
+        const activeTrades = prevTrades.filter(pt => 
+          // احتفظ بالصفقات التي لا تزال في قاعدة البيانات أو الصفقات المحلية الجديدة (number IDs)
+          typeof pt.id === 'number' || currentDbIds.has(pt.id)
         );
-        return [...prevTrades, ...newTrades];
+        
+        return [...activeTrades, ...newTrades];
       });
       
       console.log('Loaded', convertedTrades.length, 'open trades from database');
+    } else if (openTrades && openTrades.length === 0) {
+      // حذف صفقات قاعدة البيانات المغلقة فقط، احتفظ بالصفقات المحلية
+      setTrades(prevTrades => prevTrades.filter(t => typeof t.id === 'number'));
     }
   }, [openTrades]);
 
