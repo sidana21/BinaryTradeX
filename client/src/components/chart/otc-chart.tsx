@@ -1153,6 +1153,53 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     setDragHandle(null);
   };
 
+  // Handle double-click to delete drawing
+  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Check if double-clicking on any drawing
+    for (let i = drawingsRef.current.length - 1; i >= 0; i--) {
+      const drawing = drawingsRef.current[i];
+      
+      // Check if clicking on the drawing
+      let shouldDelete = false;
+      
+      if (drawing.type === 'trendline') {
+        shouldDelete = isNearLine(x, y, drawing.startX, drawing.startY, drawing.endX, drawing.endY, 15);
+      } else if (drawing.type === 'horizontal') {
+        shouldDelete = Math.abs(y - drawing.startY) < 15;
+      } else if (drawing.type === 'vertical') {
+        shouldDelete = Math.abs(x - drawing.startX) < 15;
+      } else if (drawing.type === 'rectangle' || drawing.type === 'fibonacci') {
+        const minX = Math.min(drawing.startX, drawing.endX);
+        const maxX = Math.max(drawing.startX, drawing.endX);
+        const minY = Math.min(drawing.startY, drawing.endY);
+        const maxY = Math.max(drawing.startY, drawing.endY);
+        shouldDelete = x >= minX - 15 && x <= maxX + 15 && y >= minY - 15 && y <= maxY + 15;
+      }
+      
+      if (shouldDelete) {
+        // Remove the drawing
+        const newDrawings = drawingsRef.current.filter((_, index) => index !== i);
+        drawingsRef.current = newDrawings;
+        setDrawings(newDrawings);
+        console.log('Drawing deleted:', drawing.type);
+        return;
+      }
+    }
+  };
+
+  // Clear all drawings
+  const handleClearAllDrawings = () => {
+    drawingsRef.current = [];
+    setDrawings([]);
+    console.log('All drawings cleared');
+  };
+
   // Draw indicators on canvas overlay
   const drawIndicators = () => {
     if (!canvasRef.current || !chartRef.current || activeIndicators.length === 0) return;
@@ -1252,20 +1299,30 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       <div className="flex-1 w-full min-h-[350px] relative">
         <div ref={containerRef} className="absolute inset-0" data-testid="otc-chart" />
         
-        {/* Interactive Drawing Tools - Temporarily disabled */}
-        {/* <div className="absolute inset-0 z-10" style={{ pointerEvents: 'none' }}>
-          <InteractiveDrawingTools
-            containerRef={containerRef}
-            chartWidth={containerRef.current?.clientWidth || 800}
-            chartHeight={containerRef.current?.clientHeight || 400}
-            activeDrawingTool={activeTool}
-            onDrawingComplete={handleDrawingComplete}
-            timeToX={timeToX}
-            priceToY={priceToY}
-            xToTime={xToTime}
-            yToPrice={yToPrice}
-          />
-        </div> */}
+        {/* Canvas overlay for drawing indicators and user drawings */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 z-10"
+          style={{ pointerEvents: activeTool ? 'auto' : 'none', cursor: activeTool ? 'crosshair' : 'default' }}
+          onMouseDown={handleCanvasMouseDown}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseUp={handleCanvasMouseUp}
+          onDoubleClick={handleCanvasDoubleClick}
+        />
+        
+        {/* Clear All Drawings Button - Show when there are drawings */}
+        {drawings.length > 0 && (
+          <button
+            onClick={handleClearAllDrawings}
+            className="absolute top-2 left-2 z-20 bg-red-600/90 hover:bg-red-700/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg transition-colors flex items-center gap-2"
+            title="مسح كل الرسومات"
+          >
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span className="text-white text-sm font-medium">مسح الكل</span>
+          </button>
+        )}
       </div>
 
       {/* Countdown timer overlay for active trades */}
