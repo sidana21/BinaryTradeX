@@ -210,10 +210,18 @@ export default function TradingPage() {
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">Temps</label>
             <div className="bg-[#1a1f3a] rounded-lg px-3 py-2.5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-white font-mono text-lg font-bold">
+                  {state.selectedTimeframe === '1m' && '1:00'}
+                  {state.selectedTimeframe === '5m' && '5:00'}
+                  {state.selectedTimeframe === '15m' && '15:00'}
+                </span>
+                <i className="far fa-clock text-gray-400 text-sm"></i>
+              </div>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => updateState({ selectedTimeframe: '1m' })}
-                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                  className={`flex-1 px-2 py-1 rounded text-xs transition-colors ${
                     state.selectedTimeframe === '1m' 
                       ? 'bg-blue-500 text-white' 
                       : 'text-gray-400 hover:text-white'
@@ -224,7 +232,7 @@ export default function TradingPage() {
                 </button>
                 <button
                   onClick={() => updateState({ selectedTimeframe: '5m' })}
-                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                  className={`flex-1 px-2 py-1 rounded text-xs transition-colors ${
                     state.selectedTimeframe === '5m' 
                       ? 'bg-blue-500 text-white' 
                       : 'text-gray-400 hover:text-white'
@@ -235,7 +243,7 @@ export default function TradingPage() {
                 </button>
                 <button
                   onClick={() => updateState({ selectedTimeframe: '15m' })}
-                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                  className={`flex-1 px-2 py-1 rounded text-xs transition-colors ${
                     state.selectedTimeframe === '15m' 
                       ? 'bg-blue-500 text-white' 
                       : 'text-gray-400 hover:text-white'
@@ -244,7 +252,6 @@ export default function TradingPage() {
                 >
                   15m
                 </button>
-                <i className="far fa-clock text-gray-400 text-sm ml-auto"></i>
               </div>
             </div>
           </div>
