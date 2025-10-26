@@ -488,70 +488,15 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         }
       }
     } else {
-      // No saved state, load from database
-      const loadCandles = async () => {
-        try {
-          // Load recent candles (last 5 minutes) to ensure chart starts at the right time
-          const response = await fetch(`/api/price-data/${pair}_OTC`);
-          if (response.ok) {
-            const candles = await response.json();
-            console.log('Loaded', candles.length, 'candles from database for', pair);
-            
-            if (candles.length > 0) {
-              // Remove duplicates and sort by time (ascending)
-              const uniqueCandles = candles.reduce((acc: CandlestickData[], current: CandlestickData) => {
-                const exists = acc.find(c => c.time === current.time);
-                if (!exists) {
-                  acc.push(current);
-                }
-                return acc;
-              }, []).sort((a: CandlestickData, b: CandlestickData) => {
-                const timeA = typeof a.time === 'number' ? a.time : (a.time as any).timestamp || 0;
-                const timeB = typeof b.time === 'number' ? b.time : (b.time as any).timestamp || 0;
-                return timeA - timeB;
-              });
-              
-              candleBufferRef.current = uniqueCandles;
-              currentCandleRef.current = null;
-              candleStartTimeRef.current = 0;
-              
-              if (seriesRef.current) {
-                seriesRef.current.setData(uniqueCandles);
-                const lastCandle = uniqueCandles[uniqueCandles.length - 1];
-                setLastPrice(lastCandle.close);
-                
-                // Auto-scroll to the latest candle after loading data
-                if (chartRef.current) {
-                  setTimeout(() => {
-                    chartRef.current?.timeScale().scrollToRealTime();
-                  }, 100);
-                }
-              }
-            } else {
-              // No data in database, start fresh
-              candleBufferRef.current = [];
-              currentCandleRef.current = null;
-              candleStartTimeRef.current = 0;
-              if (seriesRef.current) {
-                seriesRef.current.setData([]);
-                setLastPrice(0);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error loading candles from database:', error);
-          // On error, start fresh
-          candleBufferRef.current = [];
-          currentCandleRef.current = null;
-          candleStartTimeRef.current = 0;
-          if (seriesRef.current) {
-            seriesRef.current.setData([]);
-            setLastPrice(0);
-          }
-        }
-      };
-      
-      loadCandles();
+      // Start fresh - don't load old data from database on page refresh
+      console.log('Starting fresh chart for', pair, '- will build from live WebSocket data only');
+      candleBufferRef.current = [];
+      currentCandleRef.current = null;
+      candleStartTimeRef.current = 0;
+      if (seriesRef.current) {
+        seriesRef.current.setData([]);
+        setLastPrice(0);
+      }
     }
     // Don't clear trades - they should persist across asset changes
   }, [pair]);
