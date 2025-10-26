@@ -100,8 +100,12 @@ export default function TradingPage() {
       return;
     }
 
-    // إنشاء الصفقة في قاعدة البيانات فقط
-    // الرسم البياني سيحمّلها تلقائياً من openTrades
+    // رسم الخط الذهبي فوراً للـ visual feedback
+    if (chartRef.current) {
+      chartRef.current.placeTrade(type === 'CALL' ? 'buy' : 'sell');
+    }
+    
+    // إنشاء الصفقة في قاعدة البيانات (ستستبدل الخط المؤقت)
     executeTrade(type);
     
     toast({

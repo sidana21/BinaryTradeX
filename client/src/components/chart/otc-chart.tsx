@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import { createChart, IChartApi, ISeriesApi, CandlestickData, CandlestickSeries, createSeriesMarkers, LineData } from "lightweight-charts";
 import { ChartIndicators, Indicator, DrawingTool, calculateMA, calculateEMA, calculateRSI, calculateBollingerBands } from './chart-indicators';
-import { InteractiveDrawingTools } from './interactive-drawing-tools';
 
 interface Candle {
   pair: string;
@@ -81,12 +80,16 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => lastPrice,
     placeTrade: (type: "buy" | "sell") => {
+      // رسم الخط الذهبي فوراً من نقطة الدخول
+      // الصفقة المؤقتة ستُستبدل بالصفقة الحقيقية من قاعدة البيانات
       if (!lastPrice) return;
-      const entryTime = Math.floor(Date.now() / 1000);
+      
+      const now = Date.now();
+      const entryTime = Math.floor(now / 1000);
       const exitTime = entryTime + duration;
 
-      const newTrade: Trade = {
-        id: ++tradeIdRef.current,
+      const visualTrade: Trade = {
+        id: `temp_${++tradeIdRef.current}`, // ID مؤقت نصي لتمييزه
         type,
         assetId: `${pair}_OTC`,
         entryPrice: lastPrice,
@@ -94,7 +97,10 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         exitTime,
       };
 
-      setTrades((old) => [...old, newTrade]);
+      console.log('Created visual trade:', visualTrade);
+      
+      // إضافة فورية للخط الذهبي
+      setTrades((old) => [...old, visualTrade]);
     },
   }));
 
@@ -102,9 +108,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   useEffect(() => {
     if (openTrades && openTrades.length > 0) {
       // تحويل الصفقات من قاعدة البيانات إلى صيغة Trade المحلية
-      // استخدام ID الحقيقي من قاعدة البيانات (string UUID) كـ ID
       const convertedTrades: Trade[] = openTrades.map((dbTrade) => ({
-        id: dbTrade.id, // ✅ استخدام ID الفعلي من قاعدة البيانات
+        id: dbTrade.id, // UUID من قاعدة البيانات
         type: dbTrade.type === 'CALL' ? 'buy' : 'sell',
         assetId: dbTrade.assetId,
         entryPrice: parseFloat(dbTrade.openPrice),
@@ -112,28 +117,25 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         exitTime: Math.floor(new Date(dbTrade.expiryTime).getTime() / 1000),
       }));
       
-      // دمج الصفقات المفتوحة مع الصفقات المحلية (إن وجدت)
       setTrades(prevTrades => {
-        // فقط أضف الصفقات التي ليست موجودة بالفعل (بناءً على ID الفعلي)
-        const existingIds = new Set(prevTrades.map(pt => pt.id));
-        const newTrades = convertedTrades.filter(ct => !existingIds.has(ct.id));
-        
-        // حذف الصفقات المغلقة (التي لم تعد في openTrades)
-        const currentDbIds = new Set(convertedTrades.map(ct => ct.id));
-        const activeTrades = prevTrades.filter(pt => 
-          // احتفظ بالصفقات التي لا تزال في قاعدة البيانات أو الصفقات المحلية الجديدة (number IDs)
-          typeof pt.id === 'number' || currentDbIds.has(pt.id)
+        // حذف الصفقات المؤقتة (temp_ IDs) للـ pair الحالي
+        const withoutTempTrades = prevTrades.filter(pt => 
+          !pt.id.toString().startsWith('temp_') || pt.assetId !== `${pair}_OTC`
         );
         
-        return [...activeTrades, ...newTrades];
+        // أضف الصفقات الجديدة من قاعدة البيانات (تجنب التكرار)
+        const existingIds = new Set(withoutTempTrades.map(t => t.id));
+        const newDbTrades = convertedTrades.filter(ct => !existingIds.has(ct.id));
+        
+        console.log('Loaded', newDbTrades.length, 'new trades from database, removed temp trades');
+        
+        return [...withoutTempTrades, ...newDbTrades];
       });
-      
-      console.log('Loaded', convertedTrades.length, 'open trades from database');
     } else if (openTrades && openTrades.length === 0) {
-      // حذف صفقات قاعدة البيانات المغلقة فقط، احتفظ بالصفقات المحلية
-      setTrades(prevTrades => prevTrades.filter(t => typeof t.id === 'number'));
+      // حذف جميع الصفقات من قاعدة البيانات (بدون temp_)
+      setTrades(prevTrades => prevTrades.filter(t => t.id.toString().startsWith('temp_')));
     }
-  }, [openTrades]);
+  }, [openTrades, pair]);
 
   // Update current time every second for countdown
   useEffect(() => {
@@ -1227,8 +1229,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       <div className="flex-1 w-full min-h-[350px] relative">
         <div ref={containerRef} className="absolute inset-0" data-testid="otc-chart" />
         
-        {/* Interactive Drawing Tools */}
-        <div className="absolute inset-0 z-10" style={{ pointerEvents: 'none' }}>
+        {/* Interactive Drawing Tools - Temporarily disabled */}
+        {/* <div className="absolute inset-0 z-10" style={{ pointerEvents: 'none' }}>
           <InteractiveDrawingTools
             containerRef={containerRef}
             chartWidth={containerRef.current?.clientWidth || 800}
@@ -1240,7 +1242,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             xToTime={xToTime}
             yToPrice={yToPrice}
           />
-        </div>
+        </div> */}
       </div>
 
       {/* Countdown timer overlay for active trades */}
