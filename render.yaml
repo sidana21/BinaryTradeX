@@ -2,7 +2,7 @@ services:
   - type: web
     name: trading-platform
     env: node
-    buildCommand: npm install && npm run db:push && npm run build
+    buildCommand: npm install && npm run db:push -- --force && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
