@@ -25,18 +25,18 @@ const setStoredBalance = (key: string, value: number) => {
   }
 };
 
-const getStoredAsset = (): Asset | null => {
+// حفظ فقط ID الأصل بدلاً من الأصل كاملاً
+const getStoredAssetId = (): string | null => {
   if (typeof window === 'undefined') return null;
-  const stored = localStorage.getItem('selectedAsset');
-  return stored ? JSON.parse(stored) : null;
+  return localStorage.getItem('selectedAssetId');
 };
 
-const setStoredAsset = (asset: Asset | null) => {
+const setStoredAssetId = (assetId: string | null) => {
   if (typeof window !== 'undefined') {
-    if (asset) {
-      localStorage.setItem('selectedAsset', JSON.stringify(asset));
+    if (assetId) {
+      localStorage.setItem('selectedAssetId', assetId);
     } else {
-      localStorage.removeItem('selectedAsset');
+      localStorage.removeItem('selectedAssetId');
     }
   }
 };
@@ -44,7 +44,7 @@ const setStoredAsset = (asset: Asset | null) => {
 export function useTrading() {
   const queryClient = useQueryClient();
   const [state, setState] = useState<TradingState>({
-    selectedAsset: getStoredAsset(),
+    selectedAsset: null, // سيتم تعيينه بعد تحميل الأصول
     selectedTimeframe: '1m',
     tradeAmount: 100,
     isDemoAccount: true,
@@ -226,9 +226,9 @@ export function useTrading() {
   const updateState = (updates: Partial<TradingState>) => {
     setState(prev => {
       const newState = { ...prev, ...updates };
-      // حفظ الأصل المختار في localStorage
+      // حفظ ID الأصل المختار في localStorage
       if (updates.selectedAsset !== undefined) {
-        setStoredAsset(updates.selectedAsset);
+        setStoredAssetId(updates.selectedAsset?.id || null);
       }
       return newState;
     });
@@ -238,12 +238,25 @@ export function useTrading() {
     setState(prev => ({ ...prev, isDemoAccount: !prev.isDemoAccount }));
   };
 
-  // Set default selected asset when assets load
+  // استعادة الأصل المحفوظ أو تعيين أصل افتراضي
   useEffect(() => {
     if (assets.length > 0 && !state.selectedAsset) {
-      const defaultAsset = assets[0];
-      setState(prev => ({ ...prev, selectedAsset: defaultAsset }));
-      setStoredAsset(defaultAsset);
+      const storedAssetId = getStoredAssetId();
+      let assetToSelect: Asset;
+      
+      if (storedAssetId) {
+        // محاولة إيجاد الأصل المحفوظ
+        const storedAsset = assets.find(a => a.id === storedAssetId);
+        assetToSelect = storedAsset || assets[0];
+        console.log('Restoring selected asset:', assetToSelect.id);
+      } else {
+        // استخدام أول أصل كافتراضي
+        assetToSelect = assets[0];
+        console.log('Setting default asset:', assetToSelect.id);
+      }
+      
+      setState(prev => ({ ...prev, selectedAsset: assetToSelect }));
+      setStoredAssetId(assetToSelect.id);
     }
   }, [assets, state.selectedAsset]);
 
