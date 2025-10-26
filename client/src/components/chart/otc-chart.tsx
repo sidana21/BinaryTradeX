@@ -110,10 +110,14 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         exitTime: Math.floor(new Date(dbTrade.expiryTime).getTime() / 1000),
       }));
       
-      console.log('DB Trade openPrice:', openTrades[0]?.openPrice, 'converted entryPrice:', convertedTrades[0]?.entryPrice);
-      console.log('Last price from chart:', lastPrice);
+      setTrades(prevTrades => {
+        // أضف الصفقات الجديدة من قاعدة البيانات فقط (تجنب التكرار)
+        const existingIds = new Set(prevTrades.map(t => t.id));
+        const newDbTrades = convertedTrades.filter(ct => !existingIds.has(ct.id));
+        
+        return [...prevTrades, ...newDbTrades];
+      });
       
-      setTrades(convertedTrades);
       console.log('Loaded', convertedTrades.length, 'open trades from database');
     }
   }, [openTrades]);
