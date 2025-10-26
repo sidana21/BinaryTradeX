@@ -114,9 +114,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { assetId } = req.params;
       
-      // Load only very recent candles (last 30 seconds) for immediate chart start
-      const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
-      const priceData = await storage.getPriceDataSince(assetId, thirtySecondsAgo);
+      // Load last 5 minutes of candles to show continuous trend
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const priceData = await storage.getPriceDataSince(assetId, fiveMinutesAgo);
       
       // Convert to candle format
       const candles = priceData.map(pd => ({
