@@ -265,7 +265,7 @@ export default function AdminPage() {
           </TabsTrigger>
           <TabsTrigger value="withdrawals" data-testid="tab-withdrawals" className="relative">
             السحوبات
-            {stats && stats.withdrawals.pending > 0 && (
+            {stats && stats.withdrawals && stats.withdrawals.pending > 0 && (
               <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
                 {stats.withdrawals.pending}
               </span>
