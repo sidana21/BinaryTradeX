@@ -3,7 +3,7 @@ services:
     name: trading-platform
     env: node
     buildCommand: npm install && npm run db:push && npm run build
-    startCommand: node src/start.js
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
