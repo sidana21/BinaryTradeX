@@ -114,9 +114,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { assetId } = req.params;
       
-      // Load only recent candles (last 5 minutes) to prevent chart jumping to old data
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      const priceData = await storage.getPriceDataSince(assetId, fiveMinutesAgo);
+      // Load only very recent candles (last 30 seconds) for immediate chart start
+      const thirtySecondsAgo = new Date(Date.now() - 30 * 1000);
+      const priceData = await storage.getPriceDataSince(assetId, thirtySecondsAgo);
       
       // Convert to candle format
       const candles = priceData.map(pd => ({
@@ -1068,7 +1068,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }, 1000); // Update every second for smooth price movement
 
-  // Save candles to database every 15 seconds
+  // Track saved candles to avoid duplicates
+  const savedCandleTimestamps: Record<string, number> = {};
+
+  // Save and update candles to database every 5 seconds
   setInterval(async () => {
     const assets = await storage.getAllAssets();
     const currentTime = Math.floor(Date.now() / 1000);
@@ -1079,33 +1082,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (candle) {
         try {
-          // Save candle to database
-          await storage.addPriceData({
-            assetId: asset.id,
-            timestamp: new Date(candle.startTime * 1000),
-            open: candle.open.toString(),
-            high: candle.high.toString(),
-            low: candle.low.toString(),
-            close: candle.close.toString(),
-            volume: "0"
-          });
+          const candleKey = `${pair}_${candle.startTime}`;
+          const candleTimestamp = new Date(candle.startTime * 1000);
           
-          // Start new candle
-          currentCandles[pair] = {
-            pair,
-            time: currentTime,
-            open: candle.close,
-            high: candle.close,
-            low: candle.close,
-            close: candle.close,
-            startTime: currentTime
-          };
+          // Check if this candle was already saved
+          if (!savedCandleTimestamps[candleKey]) {
+            // First time saving this candle - add to database
+            await storage.addPriceData({
+              assetId: asset.id,
+              timestamp: candleTimestamp,
+              open: candle.open.toString(),
+              high: candle.high.toString(),
+              low: candle.low.toString(),
+              close: candle.close.toString(),
+              volume: "0"
+            });
+            
+            savedCandleTimestamps[candleKey] = candle.startTime;
+          } else {
+            // Candle already saved - update it with latest high/low/close
+            await storage.updatePriceData(
+              asset.id,
+              candleTimestamp,
+              candle.high.toString(),
+              candle.low.toString(),
+              candle.close.toString()
+            );
+          }
+          
+          // Start new candle every 60 seconds (1 minute)
+          const elapsedTime = currentTime - candle.startTime;
+          if (elapsedTime >= 60) {
+            currentCandles[pair] = {
+              pair,
+              time: currentTime,
+              open: candle.close,
+              high: candle.close,
+              low: candle.close,
+              close: candle.close,
+              startTime: currentTime
+            };
+            
+            // Clean up old timestamps (keep only last 100 per pair)
+            const pairKeys = Object.keys(savedCandleTimestamps).filter(k => k.startsWith(pair + '_'));
+            if (pairKeys.length > 100) {
+              const oldestKeys = pairKeys.slice(0, pairKeys.length - 100);
+              oldestKeys.forEach(key => delete savedCandleTimestamps[key]);
+            }
+          }
         } catch (error) {
-          console.error(`Error saving candle for ${pair}:`, error);
+          console.error(`Error saving/updating candle for ${pair}:`, error);
         }
       }
     }
-  }, 15000); // Save every 15 seconds
+  }, 5000); // Save/update every 5 seconds
 
   // Track closed trades to avoid duplicate closures
   const closedTrades = new Set<string>();

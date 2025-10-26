@@ -30,6 +30,7 @@ export interface IStorage {
   getPriceData(assetId: string, limit?: number): Promise<PriceData[]>;
   getPriceDataSince(assetId: string, sinceTimestamp: Date): Promise<PriceData[]>;
   addPriceData(priceData: InsertPriceData): Promise<PriceData>;
+  updatePriceData(assetId: string, timestamp: Date, high: string, low: string, close: string): Promise<PriceData | undefined>;
 
   // Deposits
   getDeposit(id: string): Promise<Deposit | undefined>;
@@ -267,6 +268,17 @@ export class DbStorage implements IStorage {
       id,
       volume: priceData.volume ?? "0.00"
     }).returning();
+    return result[0];
+  }
+
+  async updatePriceData(assetId: string, timestamp: Date, high: string, low: string, close: string): Promise<PriceData | undefined> {
+    const result = await this.db.update(priceDataTable)
+      .set({ high, low, close })
+      .where(and(
+        eq(priceDataTable.assetId, assetId),
+        eq(priceDataTable.timestamp, timestamp)
+      ))
+      .returning();
     return result[0];
   }
 

@@ -7,9 +7,9 @@ channel = "stable-25_05"
 packages = ["libev", "openssl", "postgresql"]
 
 [deployment]
-deploymentTarget = "autoscale"
+deploymentTarget = "vm"
 build = ["npm", "run", "build"]
-run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
+run = ["npm"]
 
 [[ports]]
 localPort = 5000
