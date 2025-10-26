@@ -43,6 +43,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [drawings, setDrawings] = useState<any[]>([]);
   const [currentDrawing, setCurrentDrawing] = useState<any>(null);
+  const [selectedDrawing, setSelectedDrawing] = useState<number | null>(null);
+  const [dragHandle, setDragHandle] = useState<'start' | 'end' | 'move' | null>(null);
+  const [dragOffset, setDragOffset] = useState<{x: number, y: number}>({x: 0, y: 0});
 
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<any>(null);
@@ -609,17 +612,18 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     }
 
     // Draw user drawings with better visibility and handles
-    [...drawings, currentDrawing].filter(Boolean).forEach((drawing, index) => {
+    [...drawings, currentDrawing].filter(Boolean).forEach((drawing, drawingIndex) => {
       if (!drawing) return;
       
       const isCurrentDrawing = drawing === currentDrawing;
+      const isSelected = selectedDrawing === drawingIndex;
       
       // Draw with shadow for better visibility
       ctx.save();
-      ctx.shadowColor = '#2196F3';
-      ctx.shadowBlur = isCurrentDrawing ? 15 : 8;
-      ctx.strokeStyle = isCurrentDrawing ? '#22c55e' : '#2196F3';
-      ctx.lineWidth = isCurrentDrawing ? 3 : 2;
+      ctx.shadowColor = isSelected ? '#22c55e' : '#2196F3';
+      ctx.shadowBlur = (isCurrentDrawing || isSelected) ? 15 : 8;
+      ctx.strokeStyle = isSelected ? '#22c55e' : (isCurrentDrawing ? '#22c55e' : '#2196F3');
+      ctx.lineWidth = (isCurrentDrawing || isSelected) ? 3 : 2;
       ctx.setLineDash([]);
 
       switch (drawing.type) {
@@ -629,15 +633,27 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           ctx.lineTo(drawing.endX, drawing.endY);
           ctx.stroke();
           
-          // Draw handle circles
+          // Draw handle circles - always show for trendlines
           if (!isCurrentDrawing) {
-            ctx.fillStyle = '#2196F3';
+            // Start handle
+            ctx.fillStyle = isSelected ? '#22c55e' : '#2196F3';
+            ctx.shadowColor = isSelected ? '#22c55e' : '#2196F3';
+            ctx.shadowBlur = 10;
             ctx.beginPath();
-            ctx.arc(drawing.startX, drawing.startY, 6, 0, Math.PI * 2);
+            ctx.arc(drawing.startX, drawing.startY, isSelected ? 8 : 6, 0, Math.PI * 2);
             ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // End handle
+            ctx.fillStyle = isSelected ? '#22c55e' : '#2196F3';
             ctx.beginPath();
-            ctx.arc(drawing.endX, drawing.endY, 6, 0, Math.PI * 2);
+            ctx.arc(drawing.endX, drawing.endY, isSelected ? 8 : 6, 0, Math.PI * 2);
             ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
           }
           break;
 
@@ -674,8 +690,26 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           ctx.strokeRect(drawing.startX, drawing.startY, width, height);
           
           // Fill with semi-transparent color
-          ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
+          const fillColor = isSelected ? 'rgba(34, 197, 94, 0.1)' : 'rgba(33, 150, 243, 0.1)';
+          ctx.fillStyle = fillColor;
           ctx.fillRect(drawing.startX, drawing.startY, width, height);
+          
+          // Draw corner handles if selected
+          if (isSelected && !isCurrentDrawing) {
+            const handleSize = 8;
+            ctx.fillStyle = '#22c55e';
+            ctx.shadowColor = '#22c55e';
+            ctx.shadowBlur = 10;
+            
+            // Top-left
+            ctx.fillRect(drawing.startX - handleSize/2, drawing.startY - handleSize/2, handleSize, handleSize);
+            // Top-right
+            ctx.fillRect(drawing.endX - handleSize/2, drawing.startY - handleSize/2, handleSize, handleSize);
+            // Bottom-left
+            ctx.fillRect(drawing.startX - handleSize/2, drawing.endY - handleSize/2, handleSize, handleSize);
+            // Bottom-right
+            ctx.fillRect(drawing.endX - handleSize/2, drawing.endY - handleSize/2, handleSize, handleSize);
+          }
           break;
 
         case 'fibonacci':
@@ -715,6 +749,29 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
               }
             }
           });
+          
+          // Draw handles if selected
+          if (isSelected && !isCurrentDrawing) {
+            ctx.fillStyle = '#22c55e';
+            ctx.shadowColor = '#22c55e';
+            ctx.shadowBlur = 10;
+            
+            // Start handle
+            ctx.beginPath();
+            ctx.arc(10, drawing.startY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // End handle
+            ctx.beginPath();
+            ctx.arc(10, drawing.endY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
           break;
       }
       
@@ -759,43 +816,168 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     setActiveTool(tool.type);
   };
 
-  // Handle canvas mouse events for drawing
+  // Check if point is near a coordinate (for handle detection)
+  const isNearPoint = (px: number, py: number, x: number, y: number, threshold = 15) => {
+    return Math.sqrt((px - x) ** 2 + (py - y) ** 2) < threshold;
+  };
+
+  // Check if point is near a line
+  const isNearLine = (px: number, py: number, x1: number, y1: number, x2: number, y2: number, threshold = 10) => {
+    const lineLength = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+    if (lineLength === 0) return isNearPoint(px, py, x1, y1, threshold);
+    
+    const t = Math.max(0, Math.min(1, ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / (lineLength ** 2)));
+    const projX = x1 + t * (x2 - x1);
+    const projY = y1 + t * (y2 - y1);
+    
+    return Math.sqrt((px - projX) ** 2 + (py - projY) ** 2) < threshold;
+  };
+
+  // Handle canvas mouse events for drawing and editing
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!activeTool || !canvasRef.current || !chartRef.current) return;
+    if (!canvasRef.current) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    setCurrentDrawing({
-      type: activeTool,
-      startX: x,
-      startY: y,
-      endX: x,
-      endY: y,
-    });
+    // If we have an active drawing tool, start new drawing
+    if (activeTool) {
+      setCurrentDrawing({
+        type: activeTool,
+        startX: x,
+        startY: y,
+        endX: x,
+        endY: y,
+      });
+      return;
+    }
+
+    // Check if clicking on existing drawing handles or lines
+    for (let i = drawings.length - 1; i >= 0; i--) {
+      const drawing = drawings[i];
+      
+      // Check start handle
+      if (isNearPoint(x, y, drawing.startX, drawing.startY)) {
+        setSelectedDrawing(i);
+        setDragHandle('start');
+        return;
+      }
+      
+      // Check end handle (for trendline, rectangle, fibonacci)
+      if (['trendline', 'rectangle', 'fibonacci'].includes(drawing.type)) {
+        if (isNearPoint(x, y, drawing.endX, drawing.endY)) {
+          setSelectedDrawing(i);
+          setDragHandle('end');
+          return;
+        }
+      }
+      
+      // Check if clicking on the line/shape itself
+      if (drawing.type === 'trendline') {
+        if (isNearLine(x, y, drawing.startX, drawing.startY, drawing.endX, drawing.endY)) {
+          setSelectedDrawing(i);
+          setDragHandle('move');
+          setDragOffset({
+            x: x - drawing.startX,
+            y: y - drawing.startY
+          });
+          return;
+        }
+      } else if (drawing.type === 'horizontal') {
+        if (Math.abs(y - drawing.startY) < 10) {
+          setSelectedDrawing(i);
+          setDragHandle('move');
+          setDragOffset({ x: 0, y: y - drawing.startY });
+          return;
+        }
+      } else if (drawing.type === 'vertical') {
+        if (Math.abs(x - drawing.startX) < 10) {
+          setSelectedDrawing(i);
+          setDragHandle('move');
+          setDragOffset({ x: x - drawing.startX, y: 0 });
+          return;
+        }
+      } else if (drawing.type === 'rectangle' || drawing.type === 'fibonacci') {
+        const minX = Math.min(drawing.startX, drawing.endX);
+        const maxX = Math.max(drawing.startX, drawing.endX);
+        const minY = Math.min(drawing.startY, drawing.endY);
+        const maxY = Math.max(drawing.startY, drawing.endY);
+        
+        if (x >= minX - 10 && x <= maxX + 10 && y >= minY - 10 && y <= maxY + 10) {
+          setSelectedDrawing(i);
+          setDragHandle('move');
+          setDragOffset({
+            x: x - drawing.startX,
+            y: y - drawing.startY
+          });
+          return;
+        }
+      }
+    }
+    
+    // Deselect if clicking on empty space
+    setSelectedDrawing(null);
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!currentDrawing || !canvasRef.current) return;
+    if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    setCurrentDrawing({
-      ...currentDrawing,
-      endX: x,
-      endY: y,
-    });
+    // Handle new drawing
+    if (currentDrawing) {
+      setCurrentDrawing({
+        ...currentDrawing,
+        endX: x,
+        endY: y,
+      });
+      return;
+    }
+
+    // Handle editing existing drawing
+    if (selectedDrawing !== null && dragHandle) {
+      const newDrawings = [...drawings];
+      const drawing = newDrawings[selectedDrawing];
+
+      if (dragHandle === 'start') {
+        drawing.startX = x;
+        drawing.startY = y;
+      } else if (dragHandle === 'end') {
+        drawing.endX = x;
+        drawing.endY = y;
+      } else if (dragHandle === 'move') {
+        if (drawing.type === 'horizontal') {
+          drawing.startY = y - dragOffset.y;
+        } else if (drawing.type === 'vertical') {
+          drawing.startX = x - dragOffset.x;
+        } else {
+          const deltaX = x - dragOffset.x - drawing.startX;
+          const deltaY = y - dragOffset.y - drawing.startY;
+          
+          drawing.startX += deltaX;
+          drawing.startY += deltaY;
+          if (drawing.endX !== undefined) drawing.endX += deltaX;
+          if (drawing.endY !== undefined) drawing.endY += deltaY;
+        }
+      }
+
+      setDrawings(newDrawings);
+    }
   };
 
   const handleCanvasMouseUp = () => {
-    if (!currentDrawing) return;
+    // Finish new drawing
+    if (currentDrawing) {
+      setDrawings([...drawings, currentDrawing]);
+      setCurrentDrawing(null);
+      setActiveTool(null);
+    }
     
-    setDrawings([...drawings, currentDrawing]);
-    setCurrentDrawing(null);
-    setActiveTool(null); // Reset tool after drawing
+    // Finish editing
+    setDragHandle(null);
   };
 
   // Draw indicators on canvas overlay
@@ -900,8 +1082,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           style={{  
             width: '100%', 
             height: '100%',
-            pointerEvents: activeTool ? 'auto' : 'none',
-            cursor: activeTool ? 'crosshair' : 'default'
+            pointerEvents: 'auto',
+            cursor: activeTool ? 'crosshair' : (dragHandle ? 'move' : 'default')
           }}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleCanvasMouseMove}
