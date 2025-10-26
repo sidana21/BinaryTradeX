@@ -336,9 +336,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                 
                 candleBufferRef.current.push(currentCandleRef.current);
                 
-                // Keep only last 100 candles for performance
-                if (candleBufferRef.current.length > 100) {
-                  candleBufferRef.current = candleBufferRef.current.slice(-100);
+                // Keep last 300 candles to maintain chart history across refreshes
+                if (candleBufferRef.current.length > 300) {
+                  candleBufferRef.current = candleBufferRef.current.slice(-300);
                 }
               }
               // If no current candle, start fresh with current price
