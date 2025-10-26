@@ -63,16 +63,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const HAS_CREDS = Boolean(AUTHTOKEN && DEVICE_ID);
 
   // Current user endpoint - returns the authenticated user
-  // For now, returns demo_user. When authentication is added, this will check the session
   app.get("/api/me", async (req, res) => {
-    // TODO: Replace with actual session/auth check when authentication is implemented
-    const user = await storage.getUser('demo_user');
+    // Use demo_user as fallback for backwards compatibility
+    const userId = req.session.userId || 'demo_user';
+    const user = await storage.getUser(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
     res.json({
       id: user.id,
       username: user.username,
+      email: user.email,
       demoBalance: user.demoBalance,
       realBalance: user.realBalance,
     });
@@ -505,12 +506,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         realBalance: "0.00",
       });
       
+      // Auto login after signup
+      req.session.userId = user.id;
+      
       // Return user without password
       const { password: _, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
       console.error("Sign up error:", error);
       res.status(500).json({ message: "حدث خطأ أثناء التسجيل" });
+    }
+  });
+
+  // Login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      // Validation
+      if (!username || !password) {
+        return res.status(400).json({ message: "جميع الحقول مطلوبة" });
+      }
+      
+      // Find user by username
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(401).json({ message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
+      }
+      
+      // Check password (TODO: Use bcrypt in production)
+      if (user.password !== password) {
+        return res.status(401).json({ message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
+      }
+      
+      // Store userId in session
+      req.session.userId = user.id;
+      
+      // Return user without password
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ message: "حدث خطأ أثناء تسجيل الدخول" });
+    }
+  });
+
+  // Logout
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "حدث خطأ أثناء تسجيل الخروج" });
+      }
+      res.json({ message: "تم تسجيل الخروج بنجاح" });
+    });
+  });
+
+  // Get current user
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ message: "غير مسجل دخول" });
+      }
+      
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        return res.status(404).json({ message: "المستخدم غير موجود" });
+      }
+      
+      // Return user without password
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Get current user error:", error);
+      res.status(500).json({ message: "حدث خطأ" });
     }
   });
 
@@ -530,9 +598,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Deposit endpoints
   app.post("/api/deposits", async (req, res) => {
     try {
-      // Get authenticated user ID from server context
-      // TODO: Replace with actual session/auth check when authentication is implemented
-      const authenticatedUserId = 'demo_user';
+      // Use session userId or fallback to demo_user
+      const authenticatedUserId = req.session.userId || 'demo_user';
       
       // Parse request body but ignore any client-supplied userId
       const { amount, method, status, transactionHash, walletAddress } = req.body;
@@ -564,9 +631,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/deposits/user/:userId", async (req, res) => {
     try {
-      // Get authenticated user ID from server context
-      // TODO: Replace with actual session/auth check when authentication is implemented
-      const authenticatedUserId = 'demo_user';
+      // Use session userId or fallback to demo_user
+      const authenticatedUserId = req.session.userId || 'demo_user';
       
       // Ignore the URL parameter and use authenticated user ID only
       const deposits = await storage.getDepositsByUser(authenticatedUserId);
@@ -614,9 +680,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Withdrawal endpoints
   app.post("/api/withdrawals", async (req, res) => {
     try {
-      // Get authenticated user ID from server context
-      // TODO: Replace with actual session/auth check when authentication is implemented
-      const authenticatedUserId = 'demo_user';
+      // Use session userId or fallback to demo_user
+      const authenticatedUserId = req.session.userId || 'demo_user';
       
       // Parse request body but ignore any client-supplied userId
       const { amount, address, method, fee, notes } = req.body;
@@ -663,9 +728,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/withdrawals/user/:userId", async (req, res) => {
     try {
-      // Get authenticated user ID from server context
-      // TODO: Replace with actual session/auth check when authentication is implemented
-      const authenticatedUserId = 'demo_user';
+      // Use session userId or fallback to demo_user
+      const authenticatedUserId = req.session.userId || 'demo_user';
       
       // Ignore the URL parameter and use authenticated user ID only
       const withdrawals = await storage.getWithdrawalsByUser(authenticatedUserId);

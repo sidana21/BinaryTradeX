@@ -30,10 +30,20 @@ export default function LandingPage() {
                     إنشاء حساب
                   </Button>
                 </Link>
-                <Link href="/trading" data-testid="link-try-demo">
+                <Link href="/login" data-testid="link-login">
                   <Button 
                     size="lg" 
                     variant="outline"
+                    className="text-lg px-8 py-6 w-full sm:w-auto"
+                    data-testid="button-login"
+                  >
+                    تسجيل الدخول
+                  </Button>
+                </Link>
+                <Link href="/trading" data-testid="link-try-demo">
+                  <Button 
+                    size="lg" 
+                    variant="secondary"
                     className="text-lg px-8 py-6 w-full sm:w-auto"
                     data-testid="button-try-demo"
                   >

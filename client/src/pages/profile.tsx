@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { ArrowLeft, User, Mail, Phone, Globe, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     fullName: '',
@@ -24,6 +25,30 @@ export default function ProfilePage() {
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'تم تسجيل الخروج',
+          description: 'تم تسجيل خروجك بنجاح',
+        });
+        setLocation('/');
+      } else {
+        throw new Error('فشل تسجيل الخروج');
+      }
+    } catch (error) {
+      toast({
+        title: 'خطأ',
+        description: 'حدث خطأ أثناء تسجيل الخروج',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -160,6 +185,7 @@ export default function ProfilePage() {
           </button>
 
           <button 
+            onClick={handleLogout}
             className="w-full bg-[#0f1535] border border-red-500/20 rounded-lg p-4 text-left hover:border-red-500/50 transition-colors"
             data-testid="button-logout"
           >

@@ -5,6 +5,17 @@
 This is a binary options trading platform built with a React frontend and Express backend. The application allows users to trade on various financial assets (forex, crypto, commodities, indices) with real-time price updates via WebSocket. Users can execute CALL/PUT trades with configurable expiry times, manage demo and real account balances, and track their trading history.
 
 **Recent Updates (Oct 26, 2025)**:
+- **Authentication System**: Complete login/logout functionality with session management
+  - **Session Management**: Express-session integrated with secure cookie settings (7-day expiry)
+  - **Login System**: `/api/auth/login` endpoint validates credentials and creates user session
+  - **Logout System**: `/api/auth/logout` endpoint destroys session and redirects to home
+  - **Login Page**: Professional Arabic UI matching signup page design
+  - **Session Integration**: All API endpoints now use `req.session.userId` with demo_user fallback
+  - **Landing Page**: Added login button next to signup button in hero section
+  - **Profile Page**: Logout button integrated with API call and redirect
+  - **Current User Endpoint**: `/api/auth/me` returns logged-in user from session
+  - **Auto-login on Signup**: New users automatically logged in after registration
+  - **Security Note**: Password hashing (bcrypt) planned for production deployment
 - **User Registration System**: Complete email-based signup with bonus rewards
   - **Database Schema**: Added email field to users table (unique, required)
   - **Sign-Up Page**: Professional Arabic UI with username, email, password validation
