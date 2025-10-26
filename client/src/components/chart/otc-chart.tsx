@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
-import { createChart, IChartApi, ISeriesApi, CandlestickData, CandlestickSeries, createSeriesMarkers, LineData } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, CandlestickSeries, createSeriesMarkers, LineData, Time } from "lightweight-charts";
 import { ChartIndicators, Indicator, DrawingTool, calculateMA, calculateEMA, calculateRSI, calculateBollingerBands } from './chart-indicators';
+import { DrawingManager, DrawingPoint } from './drawing-primitives';
 
 interface Candle {
   pair: string;
@@ -68,6 +69,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const isMobile = useRef(window.innerWidth < 768);
   const indicatorSeriesRef = useRef<Record<string, any>>({});
   const isPairChangeRef = useRef(false); // Flag to track when pair changes
+  
+  // TradingView Drawing Manager
+  const drawingManagerRef = useRef<DrawingManager | null>(null);
   
   // Store candles for each pair separately
   const pairCandlesRef = useRef<Record<string, {
