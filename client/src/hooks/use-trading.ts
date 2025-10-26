@@ -201,7 +201,15 @@ export function useTrading() {
   });
 
   const executeTrade = (type: 'CALL' | 'PUT', currentPrice: number) => {
+    // حماية من التنفيذ المزدوج
+    if (executeTradeMutation.isPending) {
+      console.warn('🛑 Trade already executing, blocking duplicate call');
+      return;
+    }
+
     if (!state.selectedAsset) return;
+
+    console.log('✅ Executing trade:', type, 'at price:', currentPrice);
 
     const timeframes = {
       '1m': 1,
