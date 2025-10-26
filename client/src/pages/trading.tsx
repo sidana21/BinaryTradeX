@@ -51,6 +51,20 @@ export default function TradingPage() {
     return assetId.replace('_OTC', '');
   };
 
+  // Convert selectedTimeframe to duration in seconds
+  const getTradeDuration = () => {
+    switch (state.selectedTimeframe) {
+      case '1m':
+        return 60;
+      case '5m':
+        return 300;
+      case '15m':
+        return 900;
+      default:
+        return 60;
+    }
+  };
+
   // Update current price from WebSocket messages
   useEffect(() => {
     if (lastMessage && lastMessage.type === 'otc_price_tick') {
@@ -183,6 +197,7 @@ export default function TradingPage() {
         <OtcChart 
           ref={chartRef}
           pair={state.selectedAsset ? getPairFromAsset(state.selectedAsset.id) : 'USDJPY'}
+          duration={getTradeDuration()}
           onPriceUpdate={handlePriceUpdate}
         />
       </div>
