@@ -199,6 +199,7 @@ export default function TradingPage() {
           pair={state.selectedAsset ? getPairFromAsset(state.selectedAsset.id) : 'USDJPY'}
           duration={getTradeDuration()}
           onPriceUpdate={handlePriceUpdate}
+          openTrades={openTrades}
         />
       </div>
 

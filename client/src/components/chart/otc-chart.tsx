@@ -26,6 +26,7 @@ interface OtcChartProps {
   pair?: string;
   duration?: number;
   onPriceUpdate?: (price: number) => void;
+  openTrades?: any[]; // صفقات مفتوحة من قاعدة البيانات
 }
 
 export interface OtcChartRef {
@@ -33,7 +34,7 @@ export interface OtcChartRef {
   placeTrade: (type: "buy" | "sell") => void;
 }
 
-const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", duration = 60, onPriceUpdate }, ref) => {
+const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", duration = 60, onPriceUpdate, openTrades = [] }, ref) => {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [lastPrice, setLastPrice] = useState(0);
   const [currentTime, setCurrentTime] = useState(Math.floor(Date.now() / 1000));
@@ -95,6 +96,40 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       setTrades((old) => [...old, newTrade]);
     },
   }));
+
+  // Load open trades from database on mount or when openTrades change
+  useEffect(() => {
+    if (openTrades && openTrades.length > 0) {
+      // تحويل الصفقات من قاعدة البيانات إلى صيغة Trade المحلية
+      const convertedTrades: Trade[] = openTrades.map((dbTrade, index) => ({
+        id: tradeIdRef.current + index + 1,
+        type: dbTrade.type === 'CALL' ? 'buy' : 'sell',
+        assetId: dbTrade.assetId,
+        entryPrice: parseFloat(dbTrade.openPrice),
+        entryTime: Math.floor(new Date(dbTrade.createdAt).getTime() / 1000),
+        exitTime: Math.floor(new Date(dbTrade.expiryTime).getTime() / 1000),
+      }));
+      
+      // تحديث tradeIdRef
+      if (convertedTrades.length > 0) {
+        tradeIdRef.current = Math.max(...convertedTrades.map(t => t.id));
+      }
+      
+      // دمج الصفقات المفتوحة مع الصفقات المحلية (إن وجدت)
+      setTrades(prevTrades => {
+        // فقط أضف الصفقات التي ليست موجودة بالفعل
+        const newTrades = convertedTrades.filter(ct => 
+          !prevTrades.some(pt => 
+            pt.assetId === ct.assetId && 
+            pt.entryTime === ct.entryTime
+          )
+        );
+        return [...prevTrades, ...newTrades];
+      });
+      
+      console.log('Loaded', convertedTrades.length, 'open trades from database');
+    }
+  }, [openTrades]);
 
   // Update current time every second for countdown
   useEffect(() => {
@@ -294,9 +329,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
 
             // تحديث نتائج الصفقات
             setTrades((old) => {
-              const updated = old.map((t) => {
+              const updated = old.map((t): Trade => {
                 if (!t.result && currentTime >= t.exitTime) {
-                  const result = (t.type === "buy" && price > t.entryPrice) ||
+                  const result: "win" | "lose" = (t.type === "buy" && price > t.entryPrice) ||
                     (t.type === "sell" && price < t.entryPrice)
                     ? "win"
                     : "lose";
