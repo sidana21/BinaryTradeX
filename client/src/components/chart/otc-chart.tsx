@@ -521,7 +521,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       // Exit circle removed - replaced with popup notification
     });
 
-    // Draw indicators
+    // Draw indicators with better visibility
     if (activeIndicators.length > 0 && candleBufferRef.current.length >= 20) {
       const closePrices = candleBufferRef.current.map(candle => candle.close);
 
@@ -535,13 +535,49 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           case 'ema':
             values = calculateEMA(closePrices, indicator.period || 12);
             break;
+          case 'rsi':
+            values = calculateRSI(closePrices, indicator.period || 14);
+            break;
+          case 'bb':
+            const bbData = calculateBollingerBands(closePrices, indicator.period || 20);
+            // Draw all three BB lines
+            ['upper', 'middle', 'lower'].forEach((line, idx) => {
+              const lineValues = line === 'upper' ? bbData.upper : line === 'middle' ? bbData.middle : bbData.lower;
+              ctx.strokeStyle = indicator.color || '#FFC107';
+              ctx.lineWidth = line === 'middle' ? 2 : 1;
+              ctx.setLineDash(line === 'middle' ? [] : [5, 5]);
+              ctx.globalAlpha = line === 'middle' ? 1 : 0.6;
+              ctx.beginPath();
+              
+              let started = false;
+              candleBufferRef.current.forEach((candle, i) => {
+                if (isNaN(lineValues[i]) || lineValues[i] === 0) return;
+                const x = timeScale.timeToCoordinate(candle.time);
+                const y = seriesRef.current?.priceToCoordinate(lineValues[i]);
+                if (x === null || y === null || y === undefined) return;
+                if (!started) {
+                  ctx.moveTo(x, y);
+                  started = true;
+                } else {
+                  ctx.lineTo(x, y);
+                }
+              });
+              
+              ctx.stroke();
+              ctx.globalAlpha = 1;
+              ctx.setLineDash([]);
+            });
+            return; // Skip the regular drawing below
         }
 
         if (values.length === 0) return;
 
-        // Draw the indicator line
+        // Draw the indicator line with glow effect for better visibility
+        ctx.save();
+        ctx.shadowColor = indicator.color || '#2196F3';
+        ctx.shadowBlur = 8;
         ctx.strokeStyle = indicator.color || '#2196F3';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.beginPath();
 
         let started = false;
@@ -562,15 +598,28 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         });
 
         ctx.stroke();
+        ctx.restore();
+        
+        // Add indicator label at the top
+        ctx.fillStyle = indicator.color || '#2196F3';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(indicator.name, 10, 30 + (activeIndicators.indexOf(indicator) * 20));
       });
     }
 
-    // Draw user drawings
-    [...drawings, currentDrawing].filter(Boolean).forEach(drawing => {
+    // Draw user drawings with better visibility and handles
+    [...drawings, currentDrawing].filter(Boolean).forEach((drawing, index) => {
       if (!drawing) return;
       
-      ctx.strokeStyle = '#2196F3';
-      ctx.lineWidth = 2;
+      const isCurrentDrawing = drawing === currentDrawing;
+      
+      // Draw with shadow for better visibility
+      ctx.save();
+      ctx.shadowColor = '#2196F3';
+      ctx.shadowBlur = isCurrentDrawing ? 15 : 8;
+      ctx.strokeStyle = isCurrentDrawing ? '#22c55e' : '#2196F3';
+      ctx.lineWidth = isCurrentDrawing ? 3 : 2;
       ctx.setLineDash([]);
 
       switch (drawing.type) {
@@ -579,6 +628,17 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           ctx.moveTo(drawing.startX, drawing.startY);
           ctx.lineTo(drawing.endX, drawing.endY);
           ctx.stroke();
+          
+          // Draw handle circles
+          if (!isCurrentDrawing) {
+            ctx.fillStyle = '#2196F3';
+            ctx.beginPath();
+            ctx.arc(drawing.startX, drawing.startY, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(drawing.endX, drawing.endY, 6, 0, Math.PI * 2);
+            ctx.fill();
+          }
           break;
 
         case 'horizontal':
@@ -586,6 +646,19 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           ctx.moveTo(0, drawing.startY);
           ctx.lineTo(canvas.width, drawing.startY);
           ctx.stroke();
+          
+          // Add price label
+          if (!isCurrentDrawing && seriesRef.current) {
+            const price = seriesRef.current.coordinateToPrice(drawing.startY);
+            if (price !== null) {
+              ctx.fillStyle = '#2196F3';
+              ctx.fillRect(canvas.width - 80, drawing.startY - 12, 75, 24);
+              ctx.fillStyle = '#fff';
+              ctx.font = 'bold 12px Arial';
+              ctx.textAlign = 'right';
+              ctx.fillText(price.toFixed(5), canvas.width - 5, drawing.startY + 4);
+            }
+          }
           break;
 
         case 'vertical':
@@ -599,25 +672,53 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           const width = drawing.endX - drawing.startX;
           const height = drawing.endY - drawing.startY;
           ctx.strokeRect(drawing.startX, drawing.startY, width, height);
+          
+          // Fill with semi-transparent color
+          ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
+          ctx.fillRect(drawing.startX, drawing.startY, width, height);
           break;
 
         case 'fibonacci':
           const fibHeight = drawing.endY - drawing.startY;
-          const fibLevels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
-          fibLevels.forEach(level => {
-            const y = drawing.startY + (fibHeight * level);
+          const fibLevels = [
+            { level: 0, label: '0%', color: '#2196F3' },
+            { level: 0.236, label: '23.6%', color: '#FFC107' },
+            { level: 0.382, label: '38.2%', color: '#FFC107' },
+            { level: 0.5, label: '50%', color: '#FF9800' },
+            { level: 0.618, label: '61.8%', color: '#FFC107' },
+            { level: 0.786, label: '78.6%', color: '#FFC107' },
+            { level: 1, label: '100%', color: '#2196F3' }
+          ];
+          
+          fibLevels.forEach(fib => {
+            const y = drawing.startY + (fibHeight * fib.level);
             ctx.beginPath();
             ctx.moveTo(0, y);
             ctx.lineTo(canvas.width, y);
-            ctx.strokeStyle = level === 0 || level === 1 ? '#2196F3' : '#FFC107';
+            ctx.strokeStyle = fib.color;
+            ctx.lineWidth = fib.level === 0 || fib.level === 1 ? 2 : 1;
+            ctx.setLineDash(fib.level === 0 || fib.level === 1 ? [] : [5, 3]);
             ctx.stroke();
             
-            ctx.fillStyle = '#FFC107';
-            ctx.font = '12px Arial';
-            ctx.fillText(`${(level * 100).toFixed(1)}%`, 10, y - 5);
+            // Label
+            ctx.fillStyle = fib.color;
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(fib.label, 10, y - 5);
+            
+            // Price label on the right
+            if (seriesRef.current) {
+              const price = seriesRef.current.coordinateToPrice(y);
+              if (price !== null) {
+                ctx.textAlign = 'right';
+                ctx.fillText(price.toFixed(5), canvas.width - 10, y - 5);
+              }
+            }
           });
           break;
       }
+      
+      ctx.restore();
     });
   }, [trades, lastPrice, currentTime, activeIndicators, drawings, currentDrawing]);
 
