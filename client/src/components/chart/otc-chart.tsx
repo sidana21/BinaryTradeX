@@ -102,7 +102,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     if (openTrades && openTrades.length > 0) {
       // تحويل الصفقات من قاعدة البيانات إلى صيغة Trade المحلية
       const convertedTrades: Trade[] = openTrades.map((dbTrade) => ({
-        id: dbTrade.id, // UUID من قاعدة البيانات
+        id: dbTrade.id,
         type: dbTrade.type === 'CALL' ? 'buy' : 'sell',
         assetId: dbTrade.assetId,
         entryPrice: parseFloat(dbTrade.openPrice),
@@ -110,17 +110,10 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         exitTime: Math.floor(new Date(dbTrade.expiryTime).getTime() / 1000),
       }));
       
-      setTrades(prevTrades => {
-        // أضف الصفقات الجديدة من قاعدة البيانات (تجنب التكرار)
-        const existingIds = new Set(prevTrades.map(t => t.id));
-        const newDbTrades = convertedTrades.filter(ct => !existingIds.has(ct.id));
-        
-        return [...prevTrades, ...newDbTrades];
-      });
-      
+      setTrades(convertedTrades);
       console.log('Loaded', convertedTrades.length, 'open trades from database');
     }
-  }, [openTrades, pair]);
+  }, [openTrades]);
 
   // Update current time every second for countdown
   useEffect(() => {
