@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { AssetList } from '@/components/trading/asset-list';
 import { TradingPanel } from '@/components/trading/trading-panel';
 import { TradesPanel } from '@/components/trading/trades-panel';
@@ -8,22 +8,34 @@ import { useWebSocket } from '@/hooks/use-websocket';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Logo } from '@/components/ui/logo';
 import { AssetIcon } from '@/components/ui/asset-icon';
 import { DepositWithdraw } from '@/components/wallet/deposit-withdraw';
 import { ExternalLink, Menu, X, Wallet, UserCircle } from 'lucide-react';
 import type { Asset } from '@shared/schema';
 import OtcChart, { OtcChartRef } from '@/components/chart/otc-chart';
+import { useQuery } from '@tanstack/react-query';
 
 export default function TradingPage() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const { lastMessage } = useWebSocket('/ws');
   const [isAssetsOpen, setIsAssetsOpen] = useState(false);
   const [isTradingOpen, setIsTradingOpen] = useState(false);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [showDepositPrompt, setShowDepositPrompt] = useState(false);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const chartRef = useRef<OtcChartRef>(null);
+
+  // Check if user is logged in
+  const { data: currentUser } = useQuery({
+    queryKey: ['/api/auth/me'],
+    retry: false,
+  });
+
+  const isGuest = !currentUser;
   
   useEffect(() => {
     console.log('isAssetsOpen changed:', isAssetsOpen);
@@ -170,11 +182,20 @@ export default function TradingPage() {
           {/* Center - Account Type & Balance */}
           <button 
             onClick={() => {
-              toggleAccount();
-              toast({
-                title: 'تم التبديل',
-                description: state.isDemoAccount ? 'تم التبديل إلى الحساب الحقيقي' : 'تم التبديل إلى الحساب التجريبي',
-              });
+              // إذا كان ضيف ويحاول التبديل من التجريبي إلى الحقيقي
+              if (isGuest && state.isDemoAccount) {
+                setShowLoginDialog(true);
+                return;
+              }
+              
+              // السماح بالتبديل فقط للمستخدمين المسجلين
+              if (!isGuest) {
+                toggleAccount();
+                toast({
+                  title: 'تم التبديل',
+                  description: state.isDemoAccount ? 'تم التبديل إلى الحساب الحقيقي' : 'تم التبديل إلى الحساب التجريبي',
+                });
+              }
             }}
             className="flex flex-col items-center hover:bg-[#1a1f3a] rounded-lg px-3 py-1 transition-colors active:scale-95"
             data-testid="button-toggle-account"
@@ -543,6 +564,68 @@ export default function TradingPage() {
           </div>
         </div>
       )}
+
+      {/* Login Required Dialog */}
+      <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <DialogContent className="bg-[#0f1535] border-[#1a1f3a] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center text-white">
+              يتطلب تسجيل الدخول
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-400 pt-2">
+              للوصول إلى الحساب الحقيقي، يجب عليك تسجيل الدخول أولاً
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 pt-4">
+            {/* Icon */}
+            <div className="flex justify-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center">
+                <i className="fas fa-lock text-white text-3xl"></i>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="text-center space-y-2">
+              <p className="text-gray-300">
+                الحساب الحقيقي متاح فقط للمستخدمين المسجلين
+              </p>
+              <p className="text-sm text-gray-400">
+                سجل دخولك أو أنشئ حساب جديد للبدء في التداول الحقيقي
+              </p>
+            </div>
+
+            {/* Login Button */}
+            <Button
+              onClick={() => setLocation('/login')}
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-6 text-lg"
+            >
+              <i className="fas fa-sign-in-alt ml-2"></i>
+              تسجيل الدخول
+            </Button>
+
+            {/* Signup Link */}
+            <div className="text-center">
+              <span className="text-gray-400 text-sm">ليس لديك حساب؟ </span>
+              <button
+                onClick={() => setLocation('/signup')}
+                className="text-emerald-400 hover:text-emerald-300 font-semibold text-sm"
+              >
+                إنشاء حساب جديد
+              </button>
+            </div>
+
+            {/* Continue Demo Button */}
+            <Button
+              onClick={() => setShowLoginDialog(false)}
+              variant="ghost"
+              className="w-full text-gray-400 hover:text-white hover:bg-[#1a1f3a]"
+            >
+              مواصلة التداول التجريبي
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
