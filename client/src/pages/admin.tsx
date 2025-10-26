@@ -10,12 +10,13 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
 import { ArrowLeft, Users, DollarSign, TrendingUp, Activity, Settings as SettingsIcon } from 'lucide-react';
-import type { User, Deposit, Trade, Settings } from '@shared/schema';
+import type { User, Deposit, Trade, Settings, Withdrawal } from '@shared/schema';
 
 interface AdminStats {
   users: { total: number };
   deposits: { total: number; pending: number; completed: number; count: number };
   trades: { total: number; open: number; won: number; lost: number; volume: number; payout: number };
+  withdrawals: { total: number; pending: number; completed: number; count: number };
 }
 
 export default function AdminPage() {
@@ -48,6 +49,12 @@ export default function AdminPage() {
 
   const { data: trades = [] } = useQuery<Trade[]>({
     queryKey: ['/api/admin/trades'],
+  });
+
+  const { data: withdrawals = [] } = useQuery<Withdrawal[]>({
+    queryKey: ['/api/admin/withdrawals'],
+    refetchInterval: 3000, // Auto-refresh every 3 seconds
+    refetchOnWindowFocus: true,
   });
 
   const { data: settings } = useQuery<Settings>({
@@ -93,6 +100,28 @@ export default function AdminPage() {
       toast({
         title: 'خطأ',
         description: 'حدث خطأ أثناء تحديث حالة الإيداع',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const updateWithdrawalStatusMutation = useMutation({
+    mutationFn: async ({ withdrawalId, status, notes }: { withdrawalId: string; status: string; notes?: string }) => {
+      return apiRequest('PATCH', `/api/withdrawals/${withdrawalId}/status`, { status, notes });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/withdrawals'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast({
+        title: 'تم التحديث',
+        description: 'تم تحديث حالة السحب بنجاح',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'خطأ',
+        description: 'حدث خطأ أثناء تحديث حالة السحب',
         variant: 'destructive',
       });
     },
@@ -231,6 +260,14 @@ export default function AdminPage() {
             {stats && stats.deposits.pending > 0 && (
               <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
                 {stats.deposits.pending}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="withdrawals" data-testid="tab-withdrawals" className="relative">
+            السحوبات
+            {stats && stats.withdrawals.pending > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+                {stats.withdrawals.pending}
               </span>
             )}
           </TabsTrigger>
@@ -377,6 +414,70 @@ export default function AdminPage() {
                                 onClick={() => updateDepositStatusMutation.mutate({ depositId: deposit.id, status: 'failed' })}
                                 disabled={updateDepositStatusMutation.isPending}
                                 data-testid={`button-reject-${deposit.id}`}
+                              >
+                                رفض
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="withdrawals" className="mt-4">
+          <Card className="bg-[#0f1535] border-[#1a1f3a]">
+            <CardHeader>
+              <CardTitle className="text-white">إدارة السحوبات</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-[#1a1f3a]">
+                    <TableHead className="text-gray-400">المعرف</TableHead>
+                    <TableHead className="text-gray-400">معرف المستخدم</TableHead>
+                    <TableHead className="text-gray-400">المبلغ</TableHead>
+                    <TableHead className="text-gray-400">العنوان</TableHead>
+                    <TableHead className="text-gray-400">الحالة</TableHead>
+                    <TableHead className="text-gray-400">التاريخ</TableHead>
+                    <TableHead className="text-gray-400">الإجراءات</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {withdrawals.map((withdrawal) => (
+                    <TableRow key={withdrawal.id} className="border-[#1a1f3a]" data-testid={`row-withdrawal-${withdrawal.id}`}>
+                      <TableCell className="text-gray-300 font-mono text-xs">{withdrawal.id.slice(0, 8)}...</TableCell>
+                      <TableCell className="text-gray-300 font-mono text-xs">{withdrawal.userId.slice(0, 8)}...</TableCell>
+                      <TableCell className="text-white font-semibold">${parseFloat(withdrawal.amount).toFixed(2)}</TableCell>
+                      <TableCell className="text-gray-300 font-mono text-xs" title={withdrawal.address}>
+                        {withdrawal.address.slice(0, 8)}...{withdrawal.address.slice(-6)}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(withdrawal.status || 'pending')}</TableCell>
+                      <TableCell className="text-gray-400 text-sm">
+                        {withdrawal.createdAt ? new Date(withdrawal.createdAt).toLocaleDateString('ar-SA') : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {withdrawal.status === 'pending' && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => updateWithdrawalStatusMutation.mutate({ withdrawalId: withdrawal.id, status: 'completed' })}
+                                disabled={updateWithdrawalStatusMutation.isPending}
+                                data-testid={`button-approve-${withdrawal.id}`}
+                              >
+                                موافقة
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => updateWithdrawalStatusMutation.mutate({ withdrawalId: withdrawal.id, status: 'rejected', notes: 'تم رفض الطلب' })}
+                                disabled={updateWithdrawalStatusMutation.isPending}
+                                data-testid={`button-reject-${withdrawal.id}`}
                               >
                                 رفض
                               </Button>
