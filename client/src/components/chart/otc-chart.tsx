@@ -111,22 +111,14 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       }));
       
       setTrades(prevTrades => {
-        // حذف الصفقات المؤقتة (number IDs) للـ pair الحالي فقط
-        const withoutTempTrades = prevTrades.filter(pt => 
-          typeof pt.id !== 'number' || pt.assetId !== `${pair}_OTC`
-        );
-        
         // أضف الصفقات الجديدة من قاعدة البيانات (تجنب التكرار)
-        const existingIds = new Set(withoutTempTrades.map(t => t.id));
+        const existingIds = new Set(prevTrades.map(t => t.id));
         const newDbTrades = convertedTrades.filter(ct => !existingIds.has(ct.id));
         
-        return [...withoutTempTrades, ...newDbTrades];
+        return [...prevTrades, ...newDbTrades];
       });
       
       console.log('Loaded', convertedTrades.length, 'open trades from database');
-    } else if (openTrades && openTrades.length === 0) {
-      // حذف جميع الصفقات من قاعدة البيانات (string UUIDs)
-      setTrades(prevTrades => prevTrades.filter(t => typeof t.id === 'number'));
     }
   }, [openTrades, pair]);
 
