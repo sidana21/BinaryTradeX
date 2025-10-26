@@ -104,6 +104,51 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     candleStartTime: number;
   }>>({});
 
+  // Save chart data to localStorage periodically
+  useEffect(() => {
+    const saveInterval = setInterval(() => {
+      if (candleBufferRef.current.length > 0) {
+        const chartData = {
+          pair,
+          buffer: candleBufferRef.current.slice(-300), // Save last 300 candles
+          currentCandle: currentCandleRef.current,
+          candleStartTime: candleStartTimeRef.current,
+          timestamp: Date.now(),
+        };
+        try {
+          localStorage.setItem(`chart_${pair}`, JSON.stringify(chartData));
+        } catch (e) {
+          console.error('Error saving chart data:', e);
+        }
+      }
+    }, 5000); // Save every 5 seconds
+
+    return () => clearInterval(saveInterval);
+  }, [pair]);
+
+  // Load chart data from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedData = localStorage.getItem(`chart_${pair}`);
+      if (savedData) {
+        const chartData = JSON.parse(savedData);
+        const age = Date.now() - chartData.timestamp;
+        
+        // Only use saved data if it's less than 10 minutes old
+        if (age < 10 * 60 * 1000 && chartData.buffer && chartData.buffer.length > 0) {
+          console.log('Restored', chartData.buffer.length, 'candles from localStorage for', pair);
+          pairCandlesRef.current[pair] = {
+            buffer: chartData.buffer,
+            currentCandle: chartData.currentCandle,
+            candleStartTime: chartData.candleStartTime,
+          };
+        }
+      }
+    } catch (e) {
+      console.error('Error loading chart data:', e);
+    }
+  }, []);
+
 
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => lastPrice,
@@ -446,7 +491,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       // No saved state, load from database
       const loadCandles = async () => {
         try {
-          const response = await fetch(`/api/price-data/${pair}_OTC?limit=100`);
+          // Load more candles to preserve chart history (300 instead of 100)
+          // This ensures the chart looks the same after refresh
+          const response = await fetch(`/api/price-data/${pair}_OTC?limit=300`);
           if (response.ok) {
             const candles = await response.json();
             console.log('Loaded', candles.length, 'candles from database for', pair);
