@@ -463,11 +463,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = await storage.createUser({
         username: `demo_${Date.now()}`,
+        email: `demo_${Date.now()}@bokoption.com`,
         password: "demo123"
       });
       res.json(user);
     } catch (error) {
       res.status(500).json({ message: "Failed to create demo user" });
+    }
+  });
+
+  // Sign up new user
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { username, email, password } = req.body;
+      
+      // Validation
+      if (!username || !email || !password) {
+        return res.status(400).json({ message: "جميع الحقول مطلوبة" });
+      }
+      
+      if (password.length < 6) {
+        return res.status(400).json({ message: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
+      }
+      
+      // Check if user already exists
+      const existingUsers = await storage.getAllUsers();
+      const userExists = existingUsers.some(
+        u => u.username === username || u.email === email
+      );
+      
+      if (userExists) {
+        return res.status(400).json({ message: "اسم المستخدم أو البريد الإلكتروني موجود بالفعل" });
+      }
+      
+      // Create new user with +200$ bonus
+      const user = await storage.createUser({
+        username,
+        email,
+        password, // TODO: Hash password in production
+        demoBalance: "10200.00", // 10,000 + 200 bonus
+        realBalance: "0.00",
+      });
+      
+      // Return user without password
+      const { password: _, ...userWithoutPassword } = user;
+      res.json(userWithoutPassword);
+    } catch (error) {
+      console.error("Sign up error:", error);
+      res.status(500).json({ message: "حدث خطأ أثناء التسجيل" });
     }
   });
 

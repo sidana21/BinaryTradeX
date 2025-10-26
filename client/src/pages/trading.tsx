@@ -44,7 +44,7 @@ export default function TradingPage() {
     tradesLoading,
   } = useTrading();
 
-  // Track completed demo trades and show deposit prompt after 5 trades
+  // Track completed demo trades and show deposit prompt after 3 trades
   useEffect(() => {
     if (!state.isDemoAccount) return; // Only for demo account
     
@@ -59,13 +59,11 @@ export default function TradingPage() {
       promptShown: sessionStorage.getItem('depositPromptShown')
     });
     
-    // Show prompt after 5 completed trades (only once per session)
-    if (completedDemoTrades.length >= 5 && !sessionStorage.getItem('depositPromptShown')) {
-      console.log('🎉 Showing deposit prompt!');
-      setTimeout(() => {
-        setShowDepositPrompt(true);
-        sessionStorage.setItem('depositPromptShown', 'true');
-      }, 1000); // Small delay for better UX
+    // Show prompt immediately after 3 completed trades (only once per session)
+    if (completedDemoTrades.length === 3 && !sessionStorage.getItem('depositPromptShown')) {
+      console.log('🎉 Showing deposit prompt immediately!');
+      setShowDepositPrompt(true);
+      sessionStorage.setItem('depositPromptShown', 'true');
     }
   }, [tradeHistory, state.isDemoAccount]);
 
@@ -193,14 +191,24 @@ export default function TradingPage() {
             </div>
           </button>
 
-          {/* Right - Wallet */}
-          <button 
-            onClick={() => setIsWalletOpen(true)}
-            className="w-12 h-12 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 flex items-center justify-center transition-colors" 
-            data-testid="button-wallet"
-          >
-            <Wallet className="text-emerald-400 w-6 h-6" />
-          </button>
+          {/* Right - Profile & Wallet */}
+          <div className="flex items-center gap-2">
+            <Link href="/profile">
+              <button 
+                className="w-12 h-12 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 flex items-center justify-center transition-colors" 
+                data-testid="button-profile"
+              >
+                <UserCircle className="text-blue-400 w-6 h-6" />
+              </button>
+            </Link>
+            <button 
+              onClick={() => setIsWalletOpen(true)}
+              className="w-12 h-12 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 flex items-center justify-center transition-colors" 
+              data-testid="button-wallet"
+            >
+              <Wallet className="text-emerald-400 w-6 h-6" />
+            </button>
+          </div>
         </div>
       </header>
 

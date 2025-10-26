@@ -20,14 +20,14 @@ export default function LandingPage() {
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-end">
-                <Link href="/trading" data-testid="link-start-trading">
+                <Link href="/signup" data-testid="link-signup">
                   <Button 
                     size="lg" 
-                    className="text-lg px-8 py-6 w-full sm:w-auto"
-                    data-testid="button-start-trading"
+                    className="text-lg px-8 py-6 w-full sm:w-auto bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
+                    data-testid="button-signup"
                   >
                     <TrendingUp className="ml-2 h-5 w-5" />
-                    ابدأ التداول الآن
+                    إنشاء حساب
                   </Button>
                 </Link>
                 <Link href="/trading" data-testid="link-try-demo">
@@ -241,14 +241,14 @@ export default function LandingPage() {
             انضم الآن إلى ملايين المتداولين حول العالم
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/trading" data-testid="link-cta-real">
+            <Link href="/signup" data-testid="link-cta-signup">
               <Button 
                 size="lg" 
                 variant="secondary"
                 className="text-lg px-8 py-6 w-full sm:w-auto"
-                data-testid="button-cta-real"
+                data-testid="button-cta-signup"
               >
-                افتح حساب حقيقي
+                إنشاء حساب
               </Button>
             </Link>
             <Link href="/trading" data-testid="link-cta-demo">
