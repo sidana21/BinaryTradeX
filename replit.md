@@ -4,6 +4,16 @@
 
 This project is a binary options trading platform featuring a React frontend and an Express backend. It enables users to trade various financial assets (forex, crypto, commodities, indices) with real-time price updates via WebSocket. Key capabilities include executing CALL/PUT trades with configurable expiry times, managing demo and real account balances, and tracking trading history. The platform aims to provide a robust, user-friendly trading experience, positioned for market entry in the online trading sector.
 
+## Recent Updates (Oct 26, 2025)
+
+- **Guest Account Restrictions**: Implemented security controls for guest users
+  - **Real Account Lock**: Guests cannot access real account balance or switch to real account mode
+  - **Login Dialog**: When guests attempt to switch to real account, a dialog appears prompting them to login/signup
+  - **Demo-Only Trading**: Guest users are automatically kept in demo account mode
+  - **Balance Protection**: Real balance is not displayed or accessible to unauthenticated users
+  - **Seamless UX**: Registered users can freely switch between demo and real accounts
+  - **Security First**: Prevents unauthorized access to real money trading features
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
