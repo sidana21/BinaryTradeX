@@ -4,7 +4,18 @@
 
 This is a binary options trading platform built with a React frontend and Express backend. The application allows users to trade on various financial assets (forex, crypto, commodities, indices) with real-time price updates via WebSocket. Users can execute CALL/PUT trades with configurable expiry times, manage demo and real account balances, and track their trading history.
 
-**Recent Updates (Oct 25, 2025)**:
+**Recent Updates (Oct 26, 2025)**:
+- **USDT Deposit/Withdrawal System**: Complete cryptocurrency payment integration
+  - **Deposit Interface**: QR code generation for USDT deposits with TRC20/ERC20/BEP20 network support
+  - **Withdrawal Interface**: Secure withdrawal requests with address validation and fee calculation
+  - **Database Schema**: Added withdrawals table with status tracking (pending, processing, completed, rejected)
+  - **Security Implementation**: Server-side user authentication prevents client-controlled userId attacks
+  - **Balance Management**: Immediate deduction on withdrawal request, automatic refund on rejection
+  - **API Endpoints**: RESTful endpoints for deposits and withdrawals with Zod validation
+  - **Wallet Button**: Integrated wallet access in trading interface header for quick deposit/withdrawal
+  - **Authentication Ready**: System prepared for future authentication - uses /api/me endpoint pattern
+
+**Previous Updates (Oct 25, 2025)**:
 - **Technical Analysis Tools**: Added comprehensive charting tools for professional trading analysis
   - **Technical Indicators**: MA (20, 50), EMA (12, 26), RSI (14), MACD, Bollinger Bands
   - **Drawing Tools**: Trendlines, Horizontal lines, Vertical lines, Rectangles, Fibonacci retracement
@@ -124,6 +135,22 @@ Preferred communication style: Simple, everyday language.
 - OHLCV (Open, High, Low, Close, Volume) data points
 - Foreign key to assets for historical price tracking
 - High precision for financial data accuracy
+
+**Deposits Table**
+- UUID primary key with auto-generation
+- Foreign key to users for transaction tracking
+- Amount, method (TRC20/ERC20/BEP20), and status fields
+- Transaction hash and wallet address storage
+- Timestamp tracking for created and completed times
+
+**Withdrawals Table**
+- UUID primary key with auto-generation
+- Foreign key to users for transaction tracking
+- Destination address, amount, and withdrawal fee fields
+- Status tracking (pending, processing, completed, rejected)
+- Transaction hash for blockchain verification
+- Admin notes field for rejection reasons
+- Timestamp tracking for created and processed times
 
 ### External Dependencies
 
