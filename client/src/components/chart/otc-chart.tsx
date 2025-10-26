@@ -46,6 +46,12 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const [selectedDrawing, setSelectedDrawing] = useState<number | null>(null);
   const [dragHandle, setDragHandle] = useState<'start' | 'end' | 'move' | null>(null);
   const [dragOffset, setDragOffset] = useState<{x: number, y: number}>({x: 0, y: 0});
+  const [tradeNotifications, setTradeNotifications] = useState<Array<{
+    id: number;
+    result: 'win' | 'lose';
+    profit: string;
+    timestamp: number;
+  }>>([]);
 
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<any>(null);
@@ -273,21 +279,39 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             onPriceUpdate?.(price);
 
             // تحديث نتائج الصفقات
-            setTrades((old) =>
-              old.map((t) =>
-                !t.result && currentTime >= t.exitTime
-                  ? {
-                      ...t,
-                      exitPrice: price,
-                      result:
-                        (t.type === "buy" && price > t.entryPrice) ||
-                        (t.type === "sell" && price < t.entryPrice)
-                          ? "win"
-                          : "lose",
-                    }
-                  : t
-              )
-            );
+            setTrades((old) => {
+              const updated = old.map((t) => {
+                if (!t.result && currentTime >= t.exitTime) {
+                  const result = (t.type === "buy" && price > t.entryPrice) ||
+                    (t.type === "sell" && price < t.entryPrice)
+                    ? "win"
+                    : "lose";
+                  
+                  const profit = result === 'win' ? '+$82.00' : '-$100.00';
+                  
+                  // إضافة إشعار
+                  setTradeNotifications(prev => [...prev, {
+                    id: t.id,
+                    result,
+                    profit,
+                    timestamp: Date.now()
+                  }]);
+                  
+                  // إزالة الإشعار بعد 2.5 ثانية
+                  setTimeout(() => {
+                    setTradeNotifications(prev => prev.filter(n => n.id !== t.id));
+                  }, 2500);
+                  
+                  return {
+                    ...t,
+                    exitPrice: price,
+                    result,
+                  };
+                }
+                return t;
+              });
+              return updated;
+            });
           }
         }
       } catch (error) {
@@ -1125,6 +1149,56 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           <span className="text-white font-medium text-sm">سجل الصفقات ({completedTrades.length})</span>
         </button>
       )}
+
+      {/* Trade Result Notifications - Pocket Option Style */}
+      <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2">
+        {tradeNotifications.map((notification) => {
+          const age = Date.now() - notification.timestamp;
+          const opacity = Math.max(0, 1 - age / 2500);
+          const translateY = Math.min(0, -20 + (age / 2500) * 20);
+          
+          return (
+            <div 
+              key={notification.id}
+              className={`
+                px-8 py-4 rounded-xl shadow-2xl backdrop-blur-md transform transition-all duration-300
+                ${notification.result === 'win' 
+                  ? 'bg-gradient-to-r from-green-500/95 to-green-600/95' 
+                  : 'bg-gradient-to-r from-red-500/95 to-red-600/95'
+                }
+              `}
+              style={{
+                opacity,
+                transform: `translateY(${translateY}px) scale(${0.95 + opacity * 0.05})`,
+              }}
+            >
+              <div className="flex items-center gap-4">
+                {notification.result === 'win' ? (
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                )}
+                <div className="text-white">
+                  <div className="text-2xl font-black tracking-tight">
+                    {notification.result === 'win' ? 'ربح!' : 'خسارة'}
+                  </div>
+                  <div className="text-xl font-bold mt-1">
+                    {notification.profit}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* History Modal */}
       {showHistory && completedTrades.length > 0 && (
