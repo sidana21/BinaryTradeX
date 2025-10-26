@@ -300,6 +300,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shouldWin
       };
       const validated = insertTradeSchema.parse(processedBody);
+      
+      // Deduct trade amount from user balance
+      const user = await storage.getUser(validated.userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const tradeAmount = parseFloat(validated.amount);
+      if (validated.isDemo) {
+        const currentBalance = parseFloat(user.demoBalance || "0");
+        if (currentBalance < tradeAmount) {
+          return res.status(400).json({ message: "Insufficient balance" });
+        }
+        const newDemoBalance = (currentBalance - tradeAmount).toFixed(2);
+        await storage.updateUserBalance(validated.userId, newDemoBalance, user.realBalance || "0.00");
+      } else {
+        const currentBalance = parseFloat(user.realBalance || "0");
+        if (currentBalance < tradeAmount) {
+          return res.status(400).json({ message: "Insufficient balance" });
+        }
+        const newRealBalance = (currentBalance - tradeAmount).toFixed(2);
+        await storage.updateUserBalance(validated.userId, user.demoBalance || "10000.00", newRealBalance);
+      }
+      
       const trade = await storage.createTrade(validated);
       
       // Track this trade for price manipulation
@@ -373,9 +397,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let payout: string;
       
       if (trade.shouldWin) {
-        // Force win
+        // Force win - payout is original amount + 92% profit = 1.92x
         status = 'won';
-        payout = (parseFloat(trade.amount) * 1.82).toString();
+        payout = (parseFloat(trade.amount) * 1.92).toString();
       } else {
         // Force loss
         status = 'lost';
@@ -973,8 +997,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let payout: string;
           
           if (trade.shouldWin) {
+            // Force win - payout is original amount + 92% profit = 1.92x
             status = 'won';
-            payout = (parseFloat(trade.amount) * 1.82).toString();
+            payout = (parseFloat(trade.amount) * 1.92).toString();
           } else {
             status = 'lost';
             payout = '0';
