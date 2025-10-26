@@ -104,6 +104,7 @@ export function useTrading() {
       assetId: string;
       expiryTime: Date;
       isDemo: boolean;
+      entryTime?: Date; // إضافة entryTime
     }) => {
       const response = await apiRequest('POST', '/api/trades', {
         userId: state.userId,
@@ -112,6 +113,7 @@ export function useTrading() {
         amount: tradeData.amount.toString(),
         openPrice: state.selectedAsset?.currentPrice || '0',
         expiryTime: tradeData.expiryTime.toISOString(),
+        createdAt: tradeData.entryTime?.toISOString(), // إرسال وقت الدخول من المتصفح
         isDemo: tradeData.isDemo,
       });
       return response.json();
@@ -207,14 +209,17 @@ export function useTrading() {
       '1h': 60
     };
 
+    const now = Date.now();
+    const entryTime = new Date(now); // وقت الدخول من المتصفح
     const expiryMinutes = timeframes[state.selectedTimeframe as keyof typeof timeframes] || 1;
-    const expiryTime = new Date(Date.now() + expiryMinutes * 60 * 1000);
+    const expiryTime = new Date(now + expiryMinutes * 60 * 1000);
 
     executeTradeMutation.mutate({
       type,
       amount: state.tradeAmount,
       assetId: state.selectedAsset.id,
       expiryTime,
+      entryTime, // إرسال وقت الدخول من المتصفح
       isDemo: state.isDemoAccount
     });
   };

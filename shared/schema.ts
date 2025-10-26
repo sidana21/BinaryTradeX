@@ -96,10 +96,11 @@ export const insertAssetSchema = createInsertSchema(assets);
 
 export const insertTradeSchema = createInsertSchema(trades).omit({
   id: true,
-  createdAt: true,
   closePrice: true,
   payout: true,
   status: true,
+}).extend({
+  createdAt: z.coerce.date().optional(), // السماح بإرسال createdAt من المتصفح
 });
 
 export const insertPriceDataSchema = createInsertSchema(priceData).omit({
