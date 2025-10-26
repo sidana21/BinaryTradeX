@@ -89,6 +89,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const isMobile = useRef(window.innerWidth < 768);
   const indicatorSeriesRef = useRef<Record<string, any>>({});
   const isPairChangeRef = useRef(false); // Flag to track when pair changes
+  const isDbLoadedRef = useRef(false); // Flag to track if DB data has been loaded
   
   // Refs for drawing state to avoid stale closures
   const drawingsRef = useRef<any[]>([]);
@@ -319,6 +320,12 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           const tick = message.data;
           console.log('Received price tick:', tick.pair, 'price:', tick.price);
           if (tick.pair === currentPairRef.current) {
+            // Wait for DB data to load before processing ticks
+            if (!isDbLoadedRef.current) {
+              console.log('Waiting for DB data to load before processing ticks...');
+              return;
+            }
+            
             const currentTime = tick.time;
             const price = tick.price;
             
@@ -470,6 +477,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     
     currentPairRef.current = pair;
     isPairChangeRef.current = true;
+    // Reset DB loaded flag when changing pairs
+    isDbLoadedRef.current = false;
     
     // Check if we have saved state for this pair
     const savedState = pairCandlesRef.current[pair];
@@ -499,6 +508,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           }, 100);
         }
       }
+      
+      // Mark DB as loaded since we restored from localStorage
+      isDbLoadedRef.current = true;
     } else {
       // Load last 100 candles from database for persistence
       const loadCandles = async () => {
@@ -553,6 +565,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                 setLastPrice(0);
               }
             }
+            
+            // Mark DB as loaded so WebSocket can start processing ticks
+            isDbLoadedRef.current = true;
           }
         } catch (error) {
           console.error('Error loading candles from database:', error);
@@ -564,6 +579,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             seriesRef.current.setData([]);
             setLastPrice(0);
           }
+          // Mark DB as loaded even on error so WebSocket can proceed
+          isDbLoadedRef.current = true;
         }
       };
       

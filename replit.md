@@ -32,12 +32,13 @@ This is a binary options trading platform built with a React frontend and Expres
   - **Trigger Logic**: Changed from 5 trades to 3 trades for faster engagement
   - **Instant Display**: Removed 1-second delay, prompt shows immediately with trade result
   - **User Experience**: More responsive feedback encourages real account conversion
-- **Chart Refresh Fix**: Completely resolved chart jumping issue on page refresh
-  - **Root Cause**: Chart was loading old data from database, creating gap between old candles and current WebSocket prices
-  - **Solution**: Chart now starts fresh on page refresh, building from live WebSocket data only (no old data loading)
-  - **Implementation**: Modified otc-chart.tsx to skip database loading and start with empty buffer
-  - **User Experience**: On refresh, chart begins from current price and builds gradually - no gaps or jumps
-  - **Clean Start**: Each refresh shows real-time data progression without historical artifacts
+- **Chart Data Persistence**: Complete NeonDB integration for persistent chart data across page refreshes
+  - **Database Loading**: Chart loads last 100 candles from NeonDB on every page refresh
+  - **Seamless Transition**: Uses last DB candle close price as opening price for first WebSocket candle
+  - **No Gaps**: Smooth continuation from database data to live WebSocket prices without jumps
+  - **Old Tick Protection**: Ignores WebSocket ticks older than last database candle timestamp
+  - **API Optimization**: `/api/price-data/:assetId` returns last 100 candles (sorted oldest-to-newest)
+  - **User Experience**: Chart maintains full history after refresh, continuing from exact last point
 - **Trade Duration Fix**: Temps selector now correctly changes trade expiration time
   - **Duration Prop**: Trading page now passes selected timeframe (1m/5m/15m) to OtcChart as duration prop
   - **Conversion Function**: Added getTradeDuration() to convert timeframe strings to seconds (60/300/900)
