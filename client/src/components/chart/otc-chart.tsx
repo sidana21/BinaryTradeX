@@ -464,32 +464,61 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   useEffect(() => {
     console.log('Chart pair changed to:', pair);
     
+    // Save current pair state before switching
+    const previousPair = currentPairRef.current;
+    if (previousPair && previousPair !== pair) {
+      pairCandlesRef.current[previousPair] = {
+        buffer: [...candleBufferRef.current],
+        currentCandle: currentCandleRef.current ? {...currentCandleRef.current} : null,
+        candleStartTime: candleStartTimeRef.current,
+      };
+      console.log('Saved state for', previousPair, ':', pairCandlesRef.current[previousPair]);
+    }
+    
     currentPairRef.current = pair;
     isPairChangeRef.current = true;
     // Reset DB loaded flag when changing pairs
     isDbLoadedRef.current = false;
     
-    // ✅ Load candles + current candle from server
-    const loadCandles = async () => {
+    // Check if we have saved state for this pair
+    const savedState = pairCandlesRef.current[pair];
+    
+    if (savedState && savedState.buffer.length > 0) {
+      // Restore saved state for this pair
+      console.log('Restoring saved state for', pair, ':', savedState);
+      candleBufferRef.current = savedState.buffer;
+      currentCandleRef.current = savedState.currentCandle;
+      candleStartTimeRef.current = savedState.candleStartTime;
+      
+      if (seriesRef.current) {
+        const allCandles = currentCandleRef.current 
+          ? [...candleBufferRef.current, currentCandleRef.current]
+          : candleBufferRef.current;
+        seriesRef.current.setData(allCandles);
+        
+        if (allCandles.length > 0) {
+          const lastCandle = allCandles[allCandles.length - 1];
+          setLastPrice(lastCandle.close);
+        }
+        
+        // Auto-scroll to the latest candle
+        if (chartRef.current) {
+          setTimeout(() => {
+            chartRef.current?.timeScale().scrollToRealTime();
+          }, 100);
+        }
+      }
+      
+      // Mark DB as loaded since we restored from localStorage
+      isDbLoadedRef.current = true;
+    } else {
+      // ✅ Load candles + current candle from server
+      const loadCandles = async () => {
         try {
-          console.log('🔄 Loading candles for', `${pair}_OTC`);
           const response = await fetch(`/api/price-data/${pair}_OTC/with-current`);
-          console.log('📡 Response status:', response.status, response.statusText);
-          
-          if (!response.ok) {
-            console.error('❌ Failed to load candles:', response.status, response.statusText);
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          console.log('📦 Received data:', data);
-          
-          const { candles, currentCandle, candleInterval } = data;
-          
-          if (!candles || !Array.isArray(candles)) {
-            console.error('❌ Invalid candles data:', candles);
-            throw new Error('Candles data is not an array');
-          }
+          if (response.ok) {
+            const data = await response.json();
+            const { candles, currentCandle, candleInterval } = data;
             
             console.log('Loaded', candles.length, 'candles from database for', pair);
             console.log('Current candle from server:', currentCandle);
@@ -500,7 +529,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
               setUpdateInterval(candleInterval);
             }
             
-            if (candles.length > 0) {
+            if (candles && candles.length > 0) {
               // Remove duplicates and sort by time (ascending)
               const uniqueCandles = candles.reduce((acc: CandlestickData[], current: CandlestickData) => {
                 const exists = acc.find(c => c.time === current.time);
