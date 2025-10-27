@@ -79,6 +79,7 @@ export class DbStorage implements IStorage {
       await this.db.insert(users).values({
         id: 'demo_user',
         username: 'demo',
+        email: 'demo@bokoption.com',
         password: randomPassword,
         demoBalance: '10000.00',
         realBalance: '0.00',
