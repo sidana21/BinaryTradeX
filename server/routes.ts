@@ -138,102 +138,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { assetId, timeframe } = req.params;
     const count = parseInt(req.query.count as string) || 100;
     
-    // Extended timeframe support for OTC market (5s to 4h)
-    const timeframeSeconds: Record<string, number> = {
-      '5s': 5,
-      '30s': 30,
-      '1m': 60,
-      '5m': 300,
-      '15m': 900,
-      '30m': 1800,
-      '1h': 3600,
-      '4h': 14400,
-    };
-    const intervalSeconds = timeframeSeconds[timeframe || '1m'] || 60;
-    
-    // Fallback base prices (used only if no DB data exists)
-    const fallbackPrices: Record<string, number> = {
-      // Forex OTC
-      "EURUSD_OTC": 1.0856, "GBPUSD_OTC": 1.2678, "USDJPY_OTC": 149.85,
-      "AUDUSD_OTC": 0.6550, "USDCAD_OTC": 1.3550, "USDCHF_OTC": 0.8845,
-      "NZDUSD_OTC": 0.6125, "EURJPY_OTC": 162.45, "EURGBP_OTC": 0.8565,
-      "EURAUD_OTC": 1.6580, "EURCHF_OTC": 0.9605, "GBPJPY_OTC": 189.95,
-      "AUDCAD_OTC": 0.8875, "AUDJPY_OTC": 98.15, "CHFJPY_OTC": 169.35,
-      "CADJPY_OTC": 110.65, "NZDJPY_OTC": 91.75, "EURCAD_OTC": 1.4725,
-      "GBPAUD_OTC": 1.9345, "GBPCAD_OTC": 1.7185,
-      // Crypto OTC
-      "BTCUSD_OTC": 43256.50, "ETHUSD_OTC": 2287.80, "LTCUSD_OTC": 72.45,
-      "XRPUSD_OTC": 0.5245, "BNBUSD_OTC": 315.45, "ADAUSD_OTC": 0.4823,
-      // Commodities OTC
-      "GOLD_OTC": 2045.30, "SILVER_OTC": 24.65, "OIL_OTC": 78.45,
-      "COPPER_OTC": 3.8450, "NATURALGAS_OTC": 2.7850,
-      // Indices OTC
-      "SPX_OTC": 4567.20, "NDX_OTC": 15892.50, "DJI_OTC": 36789.45,
-      "DAX_OTC": 16245.75, "CAC40_OTC": 7456.30, "FTSE_OTC": 7625.45,
-      "NIKKEI_OTC": 33145.80
-    };
-    
-    // CRITICAL FIX: Start from last saved price in DB, not static basePrice
-    let basePrice: number;
     try {
-      const lastCandle = await storage.getPriceData(assetId, 1);
-      if (lastCandle && lastCandle.length > 0) {
-        basePrice = parseFloat(lastCandle[0].close);
-        console.log(`📊 Using last DB price for ${assetId}: ${basePrice}`);
-      } else {
-        basePrice = fallbackPrices[assetId] || 1.0;
-        console.log(`⚠️ No DB data for ${assetId}, using fallback: ${basePrice}`);
+      // ✅ CRITICAL FIX: Load candles from DB instead of generating random ones
+      const dbCandles = await storage.getPriceData(assetId, count);
+      
+      if (dbCandles && dbCandles.length >= count) {
+        // ✅ Return saved candles from database (preserve chart shape)
+        const candles = dbCandles.map(pd => ({
+          timestamp: Math.floor(new Date(pd.timestamp).getTime() / 1000),
+          open: parseFloat(pd.open),
+          high: parseFloat(pd.high),
+          low: parseFloat(pd.low),
+          close: parseFloat(pd.close),
+          volume: 0
+        })).reverse(); // Reverse: oldest to newest
+        
+        console.log(`✅ Loaded ${candles.length} candles from DB for ${assetId}`);
+        return res.json(candles);
       }
+      
+      // Only generate if no data exists (first time only)
+      console.log(`⚠️ No DB candles for ${assetId}, generating initial data...`);
+      
+      // Extended timeframe support for OTC market (5s to 4h)
+      const timeframeSeconds: Record<string, number> = {
+        '5s': 5,
+        '30s': 30,
+        '1m': 60,
+        '5m': 300,
+        '15m': 900,
+        '30m': 1800,
+        '1h': 3600,
+        '4h': 14400,
+      };
+      const intervalSeconds = timeframeSeconds[timeframe || '1m'] || 60;
+      
+      // Fallback base prices (used only if no DB data exists)
+      const fallbackPrices: Record<string, number> = {
+        // Forex OTC
+        "EURUSD_OTC": 1.0856, "GBPUSD_OTC": 1.2678, "USDJPY_OTC": 149.85,
+        "AUDUSD_OTC": 0.6550, "USDCAD_OTC": 1.3550, "USDCHF_OTC": 0.8845,
+        "NZDUSD_OTC": 0.6125, "EURJPY_OTC": 162.45, "EURGBP_OTC": 0.8565,
+        "EURAUD_OTC": 1.6580, "EURCHF_OTC": 0.9605, "GBPJPY_OTC": 189.95,
+        "AUDCAD_OTC": 0.8875, "AUDJPY_OTC": 98.15, "CHFJPY_OTC": 169.35,
+        "CADJPY_OTC": 110.65, "NZDJPY_OTC": 91.75, "EURCAD_OTC": 1.4725,
+        "GBPAUD_OTC": 1.9345, "GBPCAD_OTC": 1.7185,
+        // Crypto OTC
+        "BTCUSD_OTC": 43256.50, "ETHUSD_OTC": 2287.80, "LTCUSD_OTC": 72.45,
+        "XRPUSD_OTC": 0.5245, "BNBUSD_OTC": 315.45, "ADAUSD_OTC": 0.4823,
+        // Commodities OTC
+        "GOLD_OTC": 2045.30, "SILVER_OTC": 24.65, "OIL_OTC": 78.45,
+        "COPPER_OTC": 3.8450, "NATURALGAS_OTC": 2.7850,
+        // Indices OTC
+        "SPX_OTC": 4567.20, "NDX_OTC": 15892.50, "DJI_OTC": 36789.45,
+        "DAX_OTC": 16245.75, "CAC40_OTC": 7456.30, "FTSE_OTC": 7625.45,
+        "NIKKEI_OTC": 33145.80
+      };
+      
+      let basePrice = fallbackPrices[assetId] || 1.0;
+      const currentTime = Math.floor(Date.now() / 1000);
+      const candles = [];
+      
+      // Dynamic volatility based on asset type
+      const getVolatility = (id: string): number => {
+        if (id.includes("BTC") || id.includes("ETH")) return 0.025;
+        if (id.includes("LTC") || id.includes("XRP") || id.includes("BNB") || id.includes("ADA")) return 0.02;
+        if (id.includes("GOLD") || id.includes("SILVER") || id.includes("OIL")) return 0.008;
+        if (id.includes("SPX") || id.includes("NDX") || id.includes("DJI") || id.includes("DAX")) return 0.006;
+        return 0.0015; // Forex default
+      };
+      
+      const getDecimals = (id: string): number => {
+        if (id.includes("BTC") || id.includes("ETH")) return 2;
+        if (id.includes("USD") && !id.includes("JPY")) return 5;
+        if (id.includes("JPY")) return 3;
+        if (id.includes("GOLD") || id.includes("SILVER")) return 2;
+        if (id.includes("SPX") || id.includes("NDX") || id.includes("DJI")) return 2;
+        return 4;
+      };
+      
+      const volatility = getVolatility(assetId);
+      const decimals = getDecimals(assetId);
+      
+      for (let i = 0; i < count; i++) {
+        const priceChange = (Math.random() - 0.5) * volatility * basePrice;
+        const openPrice = basePrice + priceChange;
+        
+        // More realistic high/low generation
+        const highChange = Math.random() * volatility * basePrice * 0.7;
+        const lowChange = Math.random() * volatility * basePrice * 0.7;
+        const closeChange = (Math.random() - 0.5) * volatility * basePrice * 0.8;
+        
+        candles.push({
+          timestamp: currentTime - (count - i) * intervalSeconds,
+          open: parseFloat(openPrice.toFixed(decimals)),
+          high: parseFloat((Math.max(openPrice, openPrice + closeChange) + highChange).toFixed(decimals)),
+          low: parseFloat((Math.min(openPrice, openPrice + closeChange) - lowChange).toFixed(decimals)),
+          close: parseFloat((openPrice + closeChange).toFixed(decimals)),
+          volume: Math.floor(Math.random() * 150000) + 5000
+        });
+        
+        basePrice = candles[candles.length - 1].close;
+      }
+      
+      res.json(candles);
     } catch (error) {
-      basePrice = fallbackPrices[assetId] || 1.0;
-      console.log(`⚠️ DB error for ${assetId}, using fallback: ${basePrice}`);
+      console.error(`❌ Error loading candles for ${assetId}:`, error);
+      res.status(500).json({ message: "Failed to load candles" });
     }
-    const currentTime = Math.floor(Date.now() / 1000);
-    const candles = [];
-    
-    // Dynamic volatility based on asset type
-    const getVolatility = (id: string): number => {
-      if (id.includes("BTC") || id.includes("ETH")) return 0.025;
-      if (id.includes("LTC") || id.includes("XRP") || id.includes("BNB") || id.includes("ADA")) return 0.02;
-      if (id.includes("GOLD") || id.includes("SILVER") || id.includes("OIL")) return 0.008;
-      if (id.includes("SPX") || id.includes("NDX") || id.includes("DJI") || id.includes("DAX")) return 0.006;
-      return 0.0015; // Forex default
-    };
-    
-    const getDecimals = (id: string): number => {
-      if (id.includes("BTC") || id.includes("ETH")) return 2;
-      if (id.includes("USD") && !id.includes("JPY")) return 5;
-      if (id.includes("JPY")) return 3;
-      if (id.includes("GOLD") || id.includes("SILVER")) return 2;
-      if (id.includes("SPX") || id.includes("NDX") || id.includes("DJI")) return 2;
-      return 4;
-    };
-    
-    const volatility = getVolatility(assetId);
-    const decimals = getDecimals(assetId);
-    
-    for (let i = 0; i < count; i++) {
-      const priceChange = (Math.random() - 0.5) * volatility * basePrice;
-      const openPrice = basePrice + priceChange;
-      
-      // More realistic high/low generation
-      const highChange = Math.random() * volatility * basePrice * 0.7;
-      const lowChange = Math.random() * volatility * basePrice * 0.7;
-      const closeChange = (Math.random() - 0.5) * volatility * basePrice * 0.8;
-      
-      candles.push({
-        timestamp: currentTime - (count - i) * intervalSeconds,
-        open: parseFloat(openPrice.toFixed(decimals)),
-        high: parseFloat((Math.max(openPrice, openPrice + closeChange) + highChange).toFixed(decimals)),
-        low: parseFloat((Math.min(openPrice, openPrice + closeChange) - lowChange).toFixed(decimals)),
-        close: parseFloat((openPrice + closeChange).toFixed(decimals)),
-        volume: Math.floor(Math.random() * 150000) + 5000
-      });
-      
-      basePrice = candles[candles.length - 1].close;
-    }
-    
-    res.json(candles);
   });
 
   app.post("/api/binomo/trade", async (req, res) => {
