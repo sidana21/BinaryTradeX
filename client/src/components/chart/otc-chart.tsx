@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
-import { createChart, IChartApi, ISeriesApi, CandlestickData, CandlestickSeries, createSeriesMarkers, LineData } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, LineData, CandlestickSeries } from "lightweight-charts";
 import { ChartIndicators, Indicator, DrawingTool, calculateMA, calculateEMA, calculateRSI, calculateBollingerBands } from './chart-indicators';
 
 interface Candle {
@@ -291,9 +291,6 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       wickDownColor: '#ef4444',
     });
     seriesRef.current = candleSeries;
-    
-    // Initialize markers with empty array
-    markersRef.current = createSeriesMarkers(candleSeries, []);
 
     // Subscribe to visible range changes to redraw canvas
     chart.timeScale().subscribeVisibleTimeRangeChange(() => {
@@ -592,6 +589,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             
             // Mark DB as loaded so WebSocket can start processing ticks
             isDbLoadedRef.current = true;
+          }
         } catch (error) {
           console.error('Error loading candles from database:', error);
           // On error, start fresh
@@ -608,6 +606,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       };
       
       loadCandles();
+    }
     // Don't clear trades - they should persist across asset changes
   }, [pair]);
 
