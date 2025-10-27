@@ -39,7 +39,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
   const [lastPrice, setLastPrice] = useState(0);
   const [currentTime, setCurrentTime] = useState(Math.floor(Date.now() / 1000));
   const [showHistory, setShowHistory] = useState(false);
-  const [updateInterval, setUpdateInterval] = useState<number>(15);
+  const [updateInterval, setUpdateInterval] = useState<number>(60); // ✅ Use 60s like server
   const [activeIndicators, setActiveIndicators] = useState<Indicator[]>([]);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [drawings, setDrawings] = useState<any[]>([]);
@@ -512,13 +512,22 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
       // Mark DB as loaded since we restored from localStorage
       isDbLoadedRef.current = true;
     } else {
-      // Load last 100 candles from database for persistence
+      // ✅ Load candles + current candle from server
       const loadCandles = async () => {
         try {
-          const response = await fetch(`/api/price-data/${pair}_OTC`);
+          const response = await fetch(`/api/price-data/${pair}_OTC/with-current`);
           if (response.ok) {
-            const candles = await response.json();
+            const data = await response.json();
+            const { candles, currentCandle, candleInterval } = data;
+            
             console.log('Loaded', candles.length, 'candles from database for', pair);
+            console.log('Current candle from server:', currentCandle);
+            console.log('Server candle interval:', candleInterval);
+            
+            // ✅ Update client interval to match server
+            if (candleInterval && candleInterval !== updateInterval) {
+              setUpdateInterval(candleInterval);
+            }
             
             if (candles.length > 0) {
               // Remove duplicates and sort by time (ascending)
@@ -535,16 +544,31 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
               });
               
               candleBufferRef.current = uniqueCandles;
-              currentCandleRef.current = null;
               
-              // Set candleStartTime to the timestamp of the last candle
-              const lastCandle = uniqueCandles[uniqueCandles.length - 1];
-              const lastCandleTime = typeof lastCandle.time === 'number' ? lastCandle.time : (lastCandle.time as any).timestamp || 0;
-              candleStartTimeRef.current = lastCandleTime;
+              // ✅ Use server's current candle if exists
+              if (currentCandle) {
+                currentCandleRef.current = {
+                  time: currentCandle.startTime as any,
+                  open: currentCandle.open,
+                  high: currentCandle.high,
+                  low: currentCandle.low,
+                  close: currentCandle.close,
+                };
+                candleStartTimeRef.current = currentCandle.startTime;
+                console.log('✅ Resumed server candle:', currentCandleRef.current);
+              } else {
+                currentCandleRef.current = null;
+                const lastCandle = uniqueCandles[uniqueCandles.length - 1];
+                const lastCandleTime = typeof lastCandle.time === 'number' ? lastCandle.time : (lastCandle.time as any).timestamp || 0;
+                candleStartTimeRef.current = lastCandleTime;
+              }
               
               if (seriesRef.current) {
-                seriesRef.current.setData(uniqueCandles);
-                setLastPrice(lastCandle.close);
+                const allCandles = currentCandleRef.current 
+                  ? [...uniqueCandles, currentCandleRef.current]
+                  : uniqueCandles;
+                seriesRef.current.setData(allCandles);
+                setLastPrice(currentCandleRef.current?.close || uniqueCandles[uniqueCandles.length - 1].close);
                 
                 // Auto-scroll to the latest candle after loading data
                 if (chartRef.current) {
@@ -554,7 +578,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                 }
               }
               
-              console.log('Chart initialized with', uniqueCandles.length, 'candles. Last price:', lastCandle.close, 'Last time:', lastCandleTime);
+              console.log('✅ Chart initialized with', candleBufferRef.current.length, 'complete candles + current candle');
             } else {
               // No data in database, start fresh
               candleBufferRef.current = [];

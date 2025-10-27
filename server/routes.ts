@@ -819,8 +819,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 type: 'assets',
                 data: assets
               }));
+              
+              // ✅ Send current incomplete candles for all pairs
+              ws.send(JSON.stringify({
+                type: 'current_candles',
+                data: {
+                  candles: currentCandles,
+                  candleInterval: 60
+                }
+              }));
             }
           });
+        }
+        
+        // ✅ Handle subscription to specific pair
+        if (data.type === 'subscribe_pair' && data.pair) {
+          const candle = currentCandles[data.pair];
+          if (ws.readyState === WebSocket.OPEN && candle) {
+            ws.send(JSON.stringify({
+              type: 'current_candle',
+              data: {
+                pair: data.pair,
+                candle,
+                candleInterval: 60
+              }
+            }));
+          }
         }
       } catch (error) {
         console.error('WebSocket message error:', error);
@@ -1044,6 +1068,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Price momentum tracking for realistic movement
   const priceMomentum: Record<string, number> = {};
   const priceHistory: Record<string, number[]> = {};
+  
+  // ✅ NEW API: Get current candle state + historical data
+  app.get("/api/price-data/:assetId/with-current", async (req, res) => {
+    const { assetId } = req.params;
+    const count = parseInt(req.query.count as string) || 100;
+    
+    try {
+      // Load historical candles from DB
+      const dbCandles = await storage.getPriceData(assetId, count);
+      const candles = dbCandles.map(pd => ({
+        time: Math.floor(new Date(pd.timestamp).getTime() / 1000),
+        open: parseFloat(pd.open),
+        high: parseFloat(pd.high),
+        low: parseFloat(pd.low),
+        close: parseFloat(pd.close),
+        volume: 0
+      })).reverse();
+      
+      // Get current incomplete candle from server's currentCandles
+      const pair = assetId.replace('_OTC', '');
+      const currentCandle = currentCandles[pair] || null;
+      
+      res.json({
+        candles,
+        currentCandle,
+        candleInterval: 60 // Server uses 60-second candles
+      });
+    } catch (error) {
+      console.error(`Error loading candles for ${assetId}:`, error);
+      res.status(500).json({ message: "Failed to load candles" });
+    }
+  });
   
   // ✅ CRITICAL FIX: Initialize OTC markets from LAST SAVED PRICE in DB
   storage.getAllAssets().then(async assets => {
