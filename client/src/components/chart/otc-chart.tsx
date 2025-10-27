@@ -457,65 +457,21 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     };
   }, []);
 
-  // Save and restore pair state when switching between assets
+  // Load candles when pair changes
   useEffect(() => {
     console.log('Chart pair changed to:', pair);
     
-    // Save current pair state before switching
-    const previousPair = currentPairRef.current;
-    if (previousPair && previousPair !== pair) {
-      pairCandlesRef.current[previousPair] = {
-        buffer: [...candleBufferRef.current],
-        currentCandle: currentCandleRef.current ? {...currentCandleRef.current} : null,
-        candleStartTime: candleStartTimeRef.current,
-      };
-      console.log('Saved state for', previousPair, ':', pairCandlesRef.current[previousPair]);
-    }
-    
     currentPairRef.current = pair;
     isPairChangeRef.current = true;
-    // Reset DB loaded flag when changing pairs
     isDbLoadedRef.current = false;
     
-    // Check if we have saved state for this pair
-    const savedState = pairCandlesRef.current[pair];
-    
-    if (savedState && savedState.buffer.length > 0) {
-      // Restore saved state for this pair
-      console.log('Restoring saved state for', pair, ':', savedState);
-      candleBufferRef.current = savedState.buffer;
-      currentCandleRef.current = savedState.currentCandle;
-      candleStartTimeRef.current = savedState.candleStartTime;
-      
-      if (seriesRef.current) {
-        const allCandles = currentCandleRef.current 
-          ? [...candleBufferRef.current, currentCandleRef.current]
-          : candleBufferRef.current;
-        seriesRef.current.setData(allCandles);
-        
-        if (allCandles.length > 0) {
-          const lastCandle = allCandles[allCandles.length - 1];
-          setLastPrice(lastCandle.close);
-        }
-        
-        // Auto-scroll to the latest candle
-        if (chartRef.current) {
-          setTimeout(() => {
-            chartRef.current?.timeScale().scrollToRealTime();
-          }, 100);
-        }
-      }
-      
-      // Mark DB as loaded since we restored from localStorage
-      isDbLoadedRef.current = true;
-    } else {
-      // ✅ Load candles + current candle from server
-      const loadCandles = async () => {
-        try {
-          const response = await fetch(`/api/price-data/${pair}_OTC/with-current`);
-          if (response.ok) {
-            const data = await response.json();
-            const { candles, currentCandle, candleInterval } = data;
+    // ✅ Load candles + current candle from server
+    const loadCandles = async () => {
+      try {
+        const response = await fetch(`/api/price-data/${pair}_OTC/with-current`);
+        if (response.ok) {
+          const data = await response.json();
+          const { candles, currentCandle, candleInterval } = data;
             
             console.log('Loaded', candles.length, 'candles from database for', pair);
             console.log('Current candle from server:', currentCandle);
@@ -589,8 +545,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             
             // Mark DB as loaded so WebSocket can start processing ticks
             isDbLoadedRef.current = true;
-          }
-        } catch (error) {
+        }
+      } catch (error) {
           console.error('Error loading candles from database:', error);
           // On error, start fresh
           candleBufferRef.current = [];
@@ -603,10 +559,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           // Mark DB as loaded even on error so WebSocket can proceed
           isDbLoadedRef.current = true;
         }
-      };
-      
-      loadCandles();
-    }
+    };
+    
+    loadCandles();
     // Don't clear trades - they should persist across asset changes
   }, [pair]);
 
