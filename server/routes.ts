@@ -1045,26 +1045,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const priceMomentum: Record<string, number> = {};
   const priceHistory: Record<string, number[]> = {};
   
-  // Initialize OTC markets from assets
-  storage.getAllAssets().then(assets => {
-    assets.forEach(asset => {
+  // ✅ CRITICAL FIX: Initialize OTC markets from LAST SAVED PRICE in DB
+  storage.getAllAssets().then(async assets => {
+    for (const asset of assets) {
       const pair = asset.id.replace('_OTC', '');
-      otcMarkets[pair] = parseFloat(asset.currentPrice);
+      
+      // Try to get last price from price_data table (real data)
+      let startPrice = parseFloat(asset.currentPrice); // fallback
+      try {
+        const lastCandles = await storage.getPriceData(asset.id, 1);
+        if (lastCandles && lastCandles.length > 0) {
+          startPrice = parseFloat(lastCandles[0].close);
+          console.log(`✅ WebSocket starting from last DB price for ${pair}: ${startPrice}`);
+        } else {
+          console.log(`⚠️ No DB price for ${pair}, using asset price: ${startPrice}`);
+        }
+      } catch (error) {
+        console.log(`⚠️ Error loading last price for ${pair}, using asset price: ${startPrice}`);
+      }
+      
+      otcMarkets[pair] = startPrice;
       priceMomentum[pair] = 0;
-      priceHistory[pair] = [parseFloat(asset.currentPrice)];
+      priceHistory[pair] = [startPrice];
       
       // Initialize first candle for each pair
       const currentTime = Math.floor(Date.now() / 1000);
       currentCandles[pair] = {
         pair,
         time: currentTime,
-        open: parseFloat(asset.currentPrice),
-        high: parseFloat(asset.currentPrice),
-        low: parseFloat(asset.currentPrice),
-        close: parseFloat(asset.currentPrice),
+        open: startPrice,
+        high: startPrice,
+        low: startPrice,
+        close: startPrice,
         startTime: currentTime
       };
-    });
+    }
   });
 
   const generateOtcPriceUpdate = (pair: string, currentPrice: number) => {
