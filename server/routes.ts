@@ -1452,7 +1452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
     }
-  }, 5000); // Save/update every 5 seconds
+  }, 60000); // Save/update every 60 seconds (1 minute per candle)
 
   // Track closed trades to avoid duplicate closures
   const closedTrades = new Set<string>();
