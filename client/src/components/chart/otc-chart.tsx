@@ -1,4 +1,4 @@
-import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import { useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from "react";
 import { createChart, IChartApi, CandlestickSeries } from "lightweight-charts";
 import { useOtcMarket } from "@/hooks/use-otc-market";
 
@@ -30,6 +30,25 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
     candleInterval: 60,
     onPriceUpdate,
   });
+
+  const uniqueCandles = useMemo(() => {
+    const seen = new Map();
+    const filtered = candles.filter(candle => {
+      if (!candle || typeof candle.time === 'undefined') return false;
+      const time = typeof candle.time === 'number' ? candle.time : candle.time;
+      if (seen.has(time)) {
+        return false;
+      }
+      seen.set(time, true);
+      return true;
+    });
+    
+    return filtered.sort((a, b) => {
+      const timeA = typeof a.time === 'number' ? a.time : 0;
+      const timeB = typeof b.time === 'number' ? b.time : 0;
+      return timeA - timeB;
+    });
+  }, [candles]);
 
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => currentPrice || 0,
@@ -143,16 +162,20 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
   }, []);
 
   useEffect(() => {
-    if (seriesRef.current && candles.length > 0) {
-      seriesRef.current.setData(candles);
-      
-      if (chartRef.current) {
-        setTimeout(() => {
-          chartRef.current?.timeScale().scrollToRealTime();
-        }, 100);
+    if (seriesRef.current && uniqueCandles.length > 0) {
+      try {
+        seriesRef.current.setData(uniqueCandles);
+        
+        if (chartRef.current) {
+          setTimeout(() => {
+            chartRef.current?.timeScale().scrollToRealTime();
+          }, 100);
+        }
+      } catch (err) {
+        console.error('Error setting chart data:', err);
       }
     }
-  }, [candles]);
+  }, [uniqueCandles]);
 
   return (
     <div className="relative w-full h-full">
@@ -160,7 +183,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
       
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-[#0a0e1a]/80" data-testid="chart-loading">
-          <div className="text-white">Loading chart data...</div>
+          <div className="text-white">جاري تحميل البيانات...</div>
         </div>
       )}
       
@@ -173,13 +196,13 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
       <div className="absolute top-4 right-4 flex items-center gap-2" data-testid="chart-status">
         <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
         <span className="text-xs text-gray-400">
-          {isConnected ? 'Connected' : 'Disconnected'}
+          {isConnected ? 'متصل' : 'غير متصل'}
         </span>
       </div>
       
       {currentPrice && (
         <div className="absolute top-4 left-4 bg-[#1a2033]/90 px-4 py-2 rounded" data-testid="chart-current-price">
-          <div className="text-xs text-gray-400">Current Price</div>
+          <div className="text-xs text-gray-400">السعر الحالي</div>
           <div className="text-lg font-bold text-white">{currentPrice.toFixed(5)}</div>
         </div>
       )}
