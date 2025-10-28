@@ -6,16 +6,20 @@ This project is a binary options trading platform featuring a React frontend and
 
 ## Recent Updates
 
-### Oct 28, 2025 - Database Optimization & Auto-Cleanup
-- **Critical Fix**: Resolved database overflow issue (exceeded 512 MB limit)
-  - **Root Cause**: 38 OTC markets generating ~657,000 candles/day was filling database rapidly
-  - **Solution Implemented**: Automatic data cleanup system
-    - Keeps only **2 days of historical data** (~300k candles, ~66 MB)
-    - Runs cleanup **every 2 hours** to prevent overflow
-    - Uses efficient indexing (`price_data_asset_timestamp_idx`) for fast queries
-  - **Database Performance**: Optimized from 628 MB → 66 MB (90% reduction)
-  - **Trade-off**: Reduced historical data retention from 7 days to 2 days to stay within free tier limits
-  - **Future Consideration**: Upgrade to paid database tier for longer data retention
+### Oct 28, 2025 - OTC Market Reduction & Enhanced Trend Visualization
+- **Market Optimization**: Reduced OTC markets from 38 to 4 best-performing assets
+  - **Assets**: EURUSD_OTC, GBPUSD_OTC, BTCUSD_OTC, GOLD_OTC
+  - **Rationale**: Focus on high-quality assets with better performance and reduced database load
+  - **Database Impact**: Reduced candle generation from ~657,000 to ~17,000 candles/day (~97% reduction)
+- **Enhanced Chart Visualization**: Improved candle generation for persistent trends
+  - **Candle Count**: Increased from 100 to 300 candles per asset for better trend visualization
+  - **Trend Persistence**: Implemented 3-5 trend periods per 300 candles for realistic patterns
+  - **Pattern Consistency**: Each trend period maintains consistent direction (up/down) with small random noise
+  - **User Experience**: Charts now show medium-trend candles that don't reset and maintain trend direction on refresh
+- **Database Performance**: Optimized storage and auto-cleanup system
+  - Keeps **2 days of historical data** for 4 assets (~17,000 candles, ~4 MB)
+  - Runs cleanup **every 2 hours** to prevent overflow
+  - Uses efficient indexing (`price_data_asset_timestamp_idx`) for fast queries
 
 ### Oct 26, 2025 - Guest Account Restrictions
 - **Security Enhancement**: Implemented controls for guest users
