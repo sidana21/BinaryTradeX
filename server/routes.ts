@@ -1218,11 +1218,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     console.log(`\n🎯 ALL ${assets.length} OTC MARKETS READY - RUNNING 24/7`);
     console.log(`📈 Markets will continue from last saved state`);
-    console.log(`💾 Auto-saving candles every 5 seconds to database\n`);
+    console.log(`💾 Auto-saving candles every 60 seconds (1 minute per candle)\n`);
     
     // 🗑️ AUTO-CLEANUP: Delete data older than 2 days to prevent database overflow
-    // With 38 markets × 12 candles/min = 456 candles/min = ~657k candles/day
-    // We keep only 2 days (~300k candles) to stay under 512MB limit
+    // With 38 markets × 1 candle/min = 38 candles/min = ~54,720 candles/day
+    // We keep only 2 days (~109k candles) - much more efficient than 5-second candles!
     const cleanupOldData = async () => {
       try {
         const daysToKeep = 2;  // Keep only 2 days of data
