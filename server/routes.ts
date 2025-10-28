@@ -784,6 +784,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Price simulation and WebSocket broadcasting
   const connectedClients = new Set<WebSocket>();
+  
+  // ✅ Track initialization status
+  let isMarketsInitialized = false;
 
   wss.on('connection', (ws) => {
     connectedClients.add(ws);
@@ -801,14 +804,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 data: assets
               }));
               
-              // ✅ Send current incomplete candles for all pairs
-              ws.send(JSON.stringify({
-                type: 'current_candles',
-                data: {
-                  candles: currentCandles,
-                  candleInterval: 60
+              // ✅ Only send candles if markets are initialized and data is valid
+              if (isMarketsInitialized && Object.keys(currentCandles).length > 0) {
+                // Filter out any invalid candles (null/undefined values)
+                const validCandles: Record<string, any> = {};
+                Object.entries(currentCandles).forEach(([pair, candle]) => {
+                  if (candle && 
+                      typeof candle.open === 'number' && 
+                      typeof candle.high === 'number' && 
+                      typeof candle.low === 'number' && 
+                      typeof candle.close === 'number' &&
+                      !isNaN(candle.open) &&
+                      !isNaN(candle.high) &&
+                      !isNaN(candle.low) &&
+                      !isNaN(candle.close)) {
+                    validCandles[pair] = candle;
+                  }
+                });
+                
+                if (Object.keys(validCandles).length > 0) {
+                  ws.send(JSON.stringify({
+                    type: 'current_candles',
+                    data: {
+                      candles: validCandles,
+                      candleInterval: 60
+                    }
+                  }));
                 }
-              }));
+              }
             }
           });
         }
@@ -816,7 +839,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // ✅ Handle subscription to specific pair
         if (data.type === 'subscribe_pair' && data.pair) {
           const candle = currentCandles[data.pair];
-          if (ws.readyState === WebSocket.OPEN && candle) {
+          // Only send if candle exists and all values are valid numbers
+          if (ws.readyState === WebSocket.OPEN && candle &&
+              typeof candle.open === 'number' && 
+              typeof candle.high === 'number' && 
+              typeof candle.low === 'number' && 
+              typeof candle.close === 'number' &&
+              !isNaN(candle.open) &&
+              !isNaN(candle.high) &&
+              !isNaN(candle.low) &&
+              !isNaN(candle.close)) {
             ws.send(JSON.stringify({
               type: 'current_candle',
               data: {
@@ -1072,13 +1104,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
           !isNaN(candle.open) && 
           !isNaN(candle.high) && 
           !isNaN(candle.low) && 
-          !isNaN(candle.close)
+          !isNaN(candle.close) &&
+          candle.open !== null &&
+          candle.high !== null &&
+          candle.low !== null &&
+          candle.close !== null &&
+          typeof candle.time === 'number' &&
+          !isNaN(candle.time)
         )
         .reverse();
       
       // Get current incomplete candle from server's currentCandles
       const pair = assetId.replace('_OTC', '');
-      const currentCandle = currentCandles[pair] || null;
+      let currentCandle: CurrentCandle | null = currentCandles[pair] || null;
+      
+      // ✅ Validate current candle - don't send if values are null/undefined/NaN
+      if (currentCandle) {
+        const isValid = typeof currentCandle.open === 'number' && 
+                       typeof currentCandle.high === 'number' && 
+                       typeof currentCandle.low === 'number' && 
+                       typeof currentCandle.close === 'number' &&
+                       !isNaN(currentCandle.open) &&
+                       !isNaN(currentCandle.high) &&
+                       !isNaN(currentCandle.low) &&
+                       !isNaN(currentCandle.close);
+        
+        if (!isValid) {
+          currentCandle = null; // Don't send invalid candle
+        }
+      }
       
       res.json({
         candles,
@@ -1220,6 +1274,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startTime: currentTime
       };
     }
+    
+    // ✅ Mark markets as initialized - safe to send candles via WebSocket now
+    isMarketsInitialized = true;
     
     console.log(`\n🎯 ALL ${assets.length} OTC MARKETS READY - RUNNING 24/7`);
     console.log(`📈 Markets will continue from last saved state`);
