@@ -292,6 +292,56 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     });
     seriesRef.current = candleSeries;
 
+    // 🚀 IMMEDIATE INITIAL DATA LOAD (like Pocket Option)
+    const initialPair = currentPairRef.current;
+    fetch(`/api/price-data/${initialPair}_OTC/with-current`)
+      .then(res => res.json())
+      .then(data => {
+        const { candles, currentCandle, candleInterval } = data;
+        console.log(`🎯 INITIAL LOAD: ${candles.length} candles for ${initialPair}`);
+        
+        if (candles && candles.length > 0) {
+          const uniqueCandles = candles.reduce((acc: CandlestickData[], current: CandlestickData) => {
+            const exists = acc.find(c => c.time === current.time);
+            if (!exists) acc.push(current);
+            return acc;
+          }, []).sort((a: CandlestickData, b: CandlestickData) => {
+            const timeA = typeof a.time === 'number' ? a.time : (a.time as any).timestamp || 0;
+            const timeB = typeof b.time === 'number' ? b.time : (b.time as any).timestamp || 0;
+            return timeA - timeB;
+          });
+          
+          candleBufferRef.current = uniqueCandles;
+          
+          if (currentCandle) {
+            currentCandleRef.current = {
+              time: currentCandle.startTime as any,
+              open: currentCandle.open,
+              high: currentCandle.high,
+              low: currentCandle.low,
+              close: currentCandle.close,
+            };
+            candleStartTimeRef.current = currentCandle.startTime;
+          }
+          
+          const allCandles = currentCandleRef.current 
+            ? [...uniqueCandles, currentCandleRef.current]
+            : uniqueCandles;
+          
+          console.log(`✅ INSTANT DISPLAY: ${allCandles.length} candles loaded!`);
+          candleSeries.setData(allCandles);
+          setLastPrice(currentCandleRef.current?.close || uniqueCandles[uniqueCandles.length - 1].close);
+          
+          setTimeout(() => chart.timeScale().scrollToRealTime(), 100);
+        }
+        
+        isDbLoadedRef.current = true;
+      })
+      .catch(err => {
+        console.error('Initial load error:', err);
+        isDbLoadedRef.current = true;
+      });
+
     // Subscribe to visible range changes to redraw canvas
     chart.timeScale().subscribeVisibleTimeRangeChange(() => {
       // Trigger canvas redraw by updating a state
