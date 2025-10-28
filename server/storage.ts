@@ -62,6 +62,9 @@ export class DbStorage implements IStorage {
     
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false
+      }
     });
     this.db = drizzle(pool);
     this.initialize();
