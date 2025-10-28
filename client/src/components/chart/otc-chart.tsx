@@ -1,5 +1,5 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useState } from "react";
-import { createChart, IChartApi, CandlestickSeries, ISeriesApi, Time } from "lightweight-charts";
+import { createChart, IChartApi, CandlestickSeries } from "lightweight-charts";
 import { useOtcMarket } from "@/hooks/use-otc-market";
 
 interface OtcChartProps {
@@ -58,6 +58,12 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
       return timeA - timeB;
     });
   }, [candles]);
+
+  const currentPairTrades = useMemo(() => {
+    if (!openTrades || !pair) return [];
+    const pairId = `${pair}_OTC`;
+    return openTrades.filter(trade => trade.assetId === pairId);
+  }, [openTrades, pair]);
 
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => currentPrice || 0,
@@ -187,45 +193,33 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
   }, [uniqueCandles]);
 
   useEffect(() => {
-    if (!seriesRef.current || !openTrades || openTrades.length === 0) {
-      priceLineRefs.current.forEach((line) => {
-        if (seriesRef.current) {
-          seriesRef.current.removePriceLine(line);
-        }
-      });
-      priceLineRefs.current.clear();
+    if (!seriesRef.current) return;
+
+    priceLineRefs.current.forEach((line) => {
+      seriesRef.current.removePriceLine(line);
+    });
+    priceLineRefs.current.clear();
+
+    if (!currentPairTrades || currentPairTrades.length === 0) {
       return;
     }
 
-    const currentTradeIds = new Set(openTrades.map(t => t.id));
-    
-    priceLineRefs.current.forEach((line, tradeId) => {
-      if (!currentTradeIds.has(tradeId)) {
-        if (seriesRef.current) {
-          seriesRef.current.removePriceLine(line);
-        }
-        priceLineRefs.current.delete(tradeId);
-      }
+    currentPairTrades.forEach((trade) => {
+      const entryPrice = parseFloat(trade.openPrice);
+      const color = trade.type === 'CALL' ? '#22c55e' : '#ef4444';
+      
+      const priceLine = seriesRef.current.createPriceLine({
+        price: entryPrice,
+        color: color,
+        lineWidth: 2,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: trade.type === 'CALL' ? '↑' : '↓',
+      });
+      
+      priceLineRefs.current.set(trade.id, priceLine);
     });
-
-    openTrades.forEach((trade) => {
-      if (!priceLineRefs.current.has(trade.id)) {
-        const entryPrice = parseFloat(trade.openPrice);
-        const color = trade.type === 'CALL' ? '#22c55e' : '#ef4444';
-        
-        const priceLine = seriesRef.current.createPriceLine({
-          price: entryPrice,
-          color: color,
-          lineWidth: 2,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: trade.type === 'CALL' ? '↑' : '↓',
-        });
-        
-        priceLineRefs.current.set(trade.id, priceLine);
-      }
-    });
-  }, [openTrades]);
+  }, [currentPairTrades]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -263,9 +257,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
         </div>
       )}
 
-      {openTrades && openTrades.length > 0 && (
+      {currentPairTrades && currentPairTrades.length > 0 && (
         <div className="absolute top-16 left-4 space-y-2" data-testid="chart-countdowns">
-          {openTrades.map((trade) => {
+          {currentPairTrades.map((trade) => {
             const expiryTime = Math.floor(new Date(trade.expiryTime).getTime() / 1000);
             const remainingSeconds = Math.max(0, expiryTime - currentTime);
             const entryPrice = parseFloat(trade.openPrice);
