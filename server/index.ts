@@ -97,4 +97,28 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
   });
+
+  // Graceful shutdown for production deployments (Render, etc.)
+  process.on('SIGTERM', () => {
+    log('SIGTERM received, closing server gracefully...');
+    
+    server.close(() => {
+      log('Server closed successfully');
+      process.exit(0);
+    });
+
+    // Force shutdown after 30 seconds if graceful shutdown fails
+    setTimeout(() => {
+      log('Could not close connections in time, forcefully shutting down');
+      process.exit(1);
+    }, 30000);
+  });
+
+  process.on('SIGINT', () => {
+    log('SIGINT received, closing server...');
+    server.close(() => {
+      log('Server closed');
+      process.exit(0);
+    });
+  });
 })();
