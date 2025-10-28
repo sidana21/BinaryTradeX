@@ -31,6 +31,7 @@ export interface IStorage {
   getPriceDataSince(assetId: string, sinceTimestamp: Date): Promise<PriceData[]>;
   addPriceData(priceData: InsertPriceData): Promise<PriceData>;
   updatePriceData(assetId: string, timestamp: Date, high: string, low: string, close: string): Promise<PriceData | undefined>;
+  cleanupOldPriceData(daysToKeep: number): Promise<number>;
 
   // Deposits
   getDeposit(id: string): Promise<Deposit | undefined>;
@@ -281,6 +282,17 @@ export class DbStorage implements IStorage {
       ))
       .returning();
     return result[0];
+  }
+
+  async cleanupOldPriceData(daysToKeep: number): Promise<number> {
+    const { lt } = await import('drizzle-orm');
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+    
+    const result = await this.db.delete(priceDataTable)
+      .where(lt(priceDataTable.timestamp, cutoffDate));
+    
+    return (result as any).rowCount || 0;
   }
 
   async getDeposit(id: string): Promise<Deposit | undefined> {

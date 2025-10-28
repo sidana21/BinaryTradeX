@@ -1219,6 +1219,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`\n🎯 ALL ${assets.length} OTC MARKETS READY - RUNNING 24/7`);
     console.log(`📈 Markets will continue from last saved state`);
     console.log(`💾 Auto-saving candles every 5 seconds to database\n`);
+    
+    // 🗑️ AUTO-CLEANUP: Delete data older than 7 days to prevent database overflow
+    const cleanupOldData = async () => {
+      try {
+        const daysToKeep = 7;
+        const deletedCount = await storage.cleanupOldPriceData(daysToKeep);
+        
+        if (deletedCount > 0) {
+          console.log(`🗑️ Cleaned up ${deletedCount} old candles (older than ${daysToKeep} days)`);
+        }
+      } catch (error) {
+        console.error('❌ Error during auto-cleanup:', error);
+      }
+    };
+    
+    // Run cleanup immediately on startup
+    cleanupOldData();
+    
+    // Then run cleanup every 24 hours
+    setInterval(cleanupOldData, 24 * 60 * 60 * 1000);
+    console.log(`🗑️ Auto-cleanup enabled: keeping last 7 days of data\n`);
   });
 
   const generateOtcPriceUpdate = (pair: string, currentPrice: number) => {
