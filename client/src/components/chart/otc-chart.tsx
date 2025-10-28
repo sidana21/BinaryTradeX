@@ -515,38 +515,6 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
               ? [...candleBufferRef.current, currentCandleRef.current]
               : candleBufferRef.current;
             
-            // 🔥 CRITICAL FIX: If we have very few candles, load from database!
-            if (allCandles.length <= 5 && !isDbLoadedRef.current && seriesRef.current) {
-              console.log(`⚡ EMERGENCY LOAD: Only ${allCandles.length} candles! Loading from DB...`);
-              fetch(`/api/price-data/${currentPairRef.current}_OTC/with-current`)
-                .then(res => res.json())
-                .then(data => {
-                  const { candles } = data;
-                  if (candles && candles.length > 10) {
-                    console.log(`✅ LOADED ${candles.length} CANDLES FROM DB!`);
-                    candleBufferRef.current = candles.sort((a: any, b: any) => {
-                      const timeA = typeof a.time === 'number' ? a.time : a.time?.timestamp || 0;
-                      const timeB = typeof b.time === 'number' ? b.time : b.time?.timestamp || 0;
-                      return timeA - timeB;
-                    });
-                    const allFixed = currentCandleRef.current 
-                      ? [...candleBufferRef.current, currentCandleRef.current]
-                      : candleBufferRef.current;
-                    seriesRef.current?.setData(allFixed);
-                    console.log(`📊 NOW SHOWING ${allFixed.length} CANDLES!`);
-                    if (chartRef.current) {
-                      setTimeout(() => chartRef.current?.timeScale().scrollToRealTime(), 100);
-                    }
-                  }
-                  isDbLoadedRef.current = true;
-                })
-                .catch(err => {
-                  console.error(`❌ Emergency load failed:`, err);
-                  isDbLoadedRef.current = true;
-                });
-            }
-            
-            console.log('Updating chart with', allCandles.length, 'candles, current candle:', currentCandleRef.current);
             seriesRef.current?.setData(allCandles);
             
             // Auto-scroll to the latest candle (rightmost position)
