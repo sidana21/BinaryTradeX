@@ -335,7 +335,24 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                 }
                 
                 if (candles && candles.length > 0) {
-                  const uniqueCandles = candles.reduce((acc: CandlestickData[], current: CandlestickData) => {
+                  // ✅ Filter and validate candles from database
+                  const validCandles = candles.filter((c: any) => {
+                    return c && 
+                           typeof c.open === 'number' && 
+                           typeof c.high === 'number' && 
+                           typeof c.low === 'number' && 
+                           typeof c.close === 'number' &&
+                           !isNaN(c.open) &&
+                           !isNaN(c.high) &&
+                           !isNaN(c.low) &&
+                           !isNaN(c.close) &&
+                           c.open !== null &&
+                           c.high !== null &&
+                           c.low !== null &&
+                           c.close !== null;
+                  });
+                  
+                  const uniqueCandles = validCandles.reduce((acc: CandlestickData[], current: CandlestickData) => {
                     const exists = acc.find(c => c.time === current.time);
                     if (!exists) acc.push(current);
                     return acc;
@@ -347,7 +364,16 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                   
                   candleBufferRef.current = uniqueCandles;
                   
-                  if (currentCandle) {
+                  // ✅ Validate currentCandle before using it
+                  if (currentCandle && 
+                      typeof currentCandle.open === 'number' && 
+                      typeof currentCandle.high === 'number' && 
+                      typeof currentCandle.low === 'number' && 
+                      typeof currentCandle.close === 'number' &&
+                      !isNaN(currentCandle.open) &&
+                      !isNaN(currentCandle.high) &&
+                      !isNaN(currentCandle.low) &&
+                      !isNaN(currentCandle.close)) {
                     currentCandleRef.current = {
                       time: currentCandle.startTime as any,
                       open: currentCandle.open,
@@ -394,6 +420,16 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             
             const currentTime = tick.time;
             const price = tick.price;
+            
+            // ✅ Validate price data - skip if null/undefined/NaN
+            if (!currentTime || !price || 
+                typeof price !== 'number' || 
+                isNaN(price) || 
+                typeof currentTime !== 'number' || 
+                isNaN(currentTime)) {
+              console.warn('Invalid price tick data:', { currentTime, price });
+              return;
+            }
             
             if (candleBufferRef.current.length > 0) {
               const lastCandle = candleBufferRef.current[candleBufferRef.current.length - 1];
@@ -445,7 +481,29 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
               ? [...candleBufferRef.current, currentCandleRef.current]
               : candleBufferRef.current;
             
-            seriesRef.current?.setData(allCandles);
+            // ✅ Filter out any invalid candles before sending to chart
+            const validCandles = allCandles.filter(candle => {
+              const isValid = candle && 
+                             typeof candle.open === 'number' && 
+                             typeof candle.high === 'number' && 
+                             typeof candle.low === 'number' && 
+                             typeof candle.close === 'number' &&
+                             !isNaN(candle.open) &&
+                             !isNaN(candle.high) &&
+                             !isNaN(candle.low) &&
+                             !isNaN(candle.close) &&
+                             candle.open !== null &&
+                             candle.high !== null &&
+                             candle.low !== null &&
+                             candle.close !== null;
+              
+              if (!isValid) {
+                console.warn('Filtering out invalid candle:', candle);
+              }
+              return isValid;
+            });
+            
+            seriesRef.current?.setData(validCandles);
             
             if (chartRef.current && allCandles.length > 0) {
               chartRef.current.timeScale().scrollToRealTime();
