@@ -60,11 +60,13 @@ export class DbStorage implements IStorage {
       throw new Error("DATABASE_URL is not set");
     }
     
+    const sslConfig = process.env.DATABASE_URL.includes('sslmode=require') || process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
+      : false;
+    
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false
-      }
+      ssl: sslConfig
     });
     this.db = drizzle(pool);
     this.initialize();
