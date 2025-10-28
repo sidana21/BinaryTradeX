@@ -459,13 +459,13 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
 
   // Load candles when pair changes
   useEffect(() => {
-    console.log('Chart pair changed to:', pair);
+    console.log('🔄 Chart pair changed to:', pair);
     
     currentPairRef.current = pair;
     isPairChangeRef.current = true;
     isDbLoadedRef.current = false;
     
-    // ✅ Load candles + current candle from server
+    // ✅ Load candles + current candle from server (INSTANT DISPLAY like Pocket Option)
     const loadCandles = async () => {
       try {
         const response = await fetch(`/api/price-data/${pair}_OTC/with-current`);
@@ -473,11 +473,10 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           const data = await response.json();
           const { candles, currentCandle, candleInterval } = data;
             
-            console.log('Loaded', candles.length, 'candles from database for', pair);
-            console.log('Current candle from server:', currentCandle);
-            console.log('Server candle interval:', candleInterval);
+            console.log(`📊 Loaded ${candles.length} candles for ${pair}`);
+            console.log(`⏱️ Server candle interval: ${candleInterval}s`);
             
-            // ✅ Update client interval to match server
+            // ✅ Update interval without triggering useEffect
             if (candleInterval && candleInterval !== updateInterval) {
               setUpdateInterval(candleInterval);
             }
@@ -496,7 +495,9 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                 return timeA - timeB;
               });
               
+              // 🚀 CRITICAL: Set buffer IMMEDIATELY (like Pocket Option)
               candleBufferRef.current = uniqueCandles;
+              console.log(`✅ Buffer set with ${uniqueCandles.length} candles`);
               
               // ✅ Use server's current candle if exists
               if (currentCandle) {
@@ -508,7 +509,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                   close: currentCandle.close,
                 };
                 candleStartTimeRef.current = currentCandle.startTime;
-                console.log('✅ Resumed server candle:', currentCandleRef.current);
+                console.log(`♻️ Resumed current candle at ${currentCandle.close}`);
               } else {
                 currentCandleRef.current = null;
                 const lastCandle = uniqueCandles[uniqueCandles.length - 1];
@@ -516,24 +517,28 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                 candleStartTimeRef.current = lastCandleTime;
               }
               
+              // 🎯 INSTANT DISPLAY: Show all candles immediately
               if (seriesRef.current) {
                 const allCandles = currentCandleRef.current 
                   ? [...uniqueCandles, currentCandleRef.current]
                   : uniqueCandles;
+                  
+                console.log(`🎨 Displaying ${allCandles.length} candles on chart`);
                 seriesRef.current.setData(allCandles);
                 setLastPrice(currentCandleRef.current?.close || uniqueCandles[uniqueCandles.length - 1].close);
                 
-                // Auto-scroll to the latest candle after loading data
+                // Auto-scroll to latest candle
                 if (chartRef.current) {
                   setTimeout(() => {
                     chartRef.current?.timeScale().scrollToRealTime();
-                  }, 100);
+                  }, 50);
                 }
               }
               
-              console.log('✅ Chart initialized with', candleBufferRef.current.length, 'complete candles + current candle');
+              console.log(`🎯 ${pair} ready with ${candleBufferRef.current.length} historical candles!`);
             } else {
               // No data in database, start fresh
+              console.log(`⚠️ No data for ${pair}, starting fresh`);
               candleBufferRef.current = [];
               currentCandleRef.current = null;
               candleStartTimeRef.current = 0;
@@ -547,7 +552,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             isDbLoadedRef.current = true;
         }
       } catch (error) {
-          console.error('Error loading candles from database:', error);
+          console.error(`❌ Error loading candles for ${pair}:`, error);
           // On error, start fresh
           candleBufferRef.current = [];
           currentCandleRef.current = null;

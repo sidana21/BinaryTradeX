@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, integer, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, integer, timestamp, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -51,7 +51,10 @@ export const priceData = pgTable("price_data", {
   low: decimal("low", { precision: 12, scale: 6 }).notNull(),
   close: decimal("close", { precision: 12, scale: 6 }).notNull(),
   volume: decimal("volume", { precision: 15, scale: 2 }).default("0.00"),
-});
+}, (table) => ({
+  // ⚡ Index for ultra-fast querying by asset and timestamp (DESC for recent-first queries)
+  assetTimestampIdx: index("price_data_asset_timestamp_idx").on(table.assetId, table.timestamp.desc()),
+}));
 
 export const deposits = pgTable("deposits", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
