@@ -1,3 +1,5 @@
+"use client"
+
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
   showText?: boolean;

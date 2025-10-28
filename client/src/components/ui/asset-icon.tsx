@@ -1,3 +1,5 @@
+"use client"
+
 interface AssetIconProps {
   assetId: string;
   size?: 'sm' | 'md' | 'lg';

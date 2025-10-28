@@ -173,48 +173,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       const intervalSeconds = timeframeSeconds[timeframe || '1m'] || 60;
       
-      // Fallback base prices (used only if no DB data exists)
+      // Fallback base prices (used only if no DB data exists) - Only 4 best OTC assets
       const fallbackPrices: Record<string, number> = {
-        // Forex OTC
-        "EURUSD_OTC": 1.0856, "GBPUSD_OTC": 1.2678, "USDJPY_OTC": 149.85,
-        "AUDUSD_OTC": 0.6550, "USDCAD_OTC": 1.3550, "USDCHF_OTC": 0.8845,
-        "NZDUSD_OTC": 0.6125, "EURJPY_OTC": 162.45, "EURGBP_OTC": 0.8565,
-        "EURAUD_OTC": 1.6580, "EURCHF_OTC": 0.9605, "GBPJPY_OTC": 189.95,
-        "AUDCAD_OTC": 0.8875, "AUDJPY_OTC": 98.15, "CHFJPY_OTC": 169.35,
-        "CADJPY_OTC": 110.65, "NZDJPY_OTC": 91.75, "EURCAD_OTC": 1.4725,
-        "GBPAUD_OTC": 1.9345, "GBPCAD_OTC": 1.7185,
-        // Crypto OTC
-        "BTCUSD_OTC": 43256.50, "ETHUSD_OTC": 2287.80, "LTCUSD_OTC": 72.45,
-        "XRPUSD_OTC": 0.5245, "BNBUSD_OTC": 315.45, "ADAUSD_OTC": 0.4823,
-        // Commodities OTC
-        "GOLD_OTC": 2045.30, "SILVER_OTC": 24.65, "OIL_OTC": 78.45,
-        "COPPER_OTC": 3.8450, "NATURALGAS_OTC": 2.7850,
-        // Indices OTC
-        "SPX_OTC": 4567.20, "NDX_OTC": 15892.50, "DJI_OTC": 36789.45,
-        "DAX_OTC": 16245.75, "CAC40_OTC": 7456.30, "FTSE_OTC": 7625.45,
-        "NIKKEI_OTC": 33145.80
+        "EURUSD_OTC": 1.0856,
+        "GBPUSD_OTC": 1.2678,
+        "BTCUSD_OTC": 43256.50,
+        "GOLD_OTC": 2045.30
       };
       
       let basePrice = fallbackPrices[assetId] || 1.0;
       const currentTime = Math.floor(Date.now() / 1000);
       const candles = [];
       
-      // Dynamic volatility based on asset type
+      // Dynamic volatility based on asset type (only 4 OTC assets)
       const getVolatility = (id: string): number => {
-        if (id.includes("BTC") || id.includes("ETH")) return 0.025;
-        if (id.includes("LTC") || id.includes("XRP") || id.includes("BNB") || id.includes("ADA")) return 0.02;
-        if (id.includes("GOLD") || id.includes("SILVER") || id.includes("OIL")) return 0.008;
-        if (id.includes("SPX") || id.includes("NDX") || id.includes("DJI") || id.includes("DAX")) return 0.006;
-        return 0.0015; // Forex default
+        if (id.includes("BTC")) return 0.025;
+        if (id.includes("GOLD")) return 0.008;
+        return 0.0015; // Forex default (EURUSD, GBPUSD)
       };
       
       const getDecimals = (id: string): number => {
-        if (id.includes("BTC") || id.includes("ETH")) return 2;
-        if (id.includes("USD") && !id.includes("JPY")) return 5;
-        if (id.includes("JPY")) return 3;
-        if (id.includes("GOLD") || id.includes("SILVER")) return 2;
-        if (id.includes("SPX") || id.includes("NDX") || id.includes("DJI")) return 2;
-        return 4;
+        if (id.includes("BTC")) return 2;
+        if (id.includes("GOLD")) return 2;
+        return 5; // Forex default (EURUSD, GBPUSD)
       };
       
       const volatility = getVolatility(assetId);
@@ -1101,60 +1082,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // ✅ Generate realistic historical candles for an asset
-  const generateHistoricalCandles = async (assetId: string, startPrice: number, count: number = 100) => {
-    console.log(`📊 Generating ${count} historical candles for ${assetId}...`);
+  // ✅ Generate realistic historical candles with PERSISTENT TREND (only 4 OTC assets)
+  const generateHistoricalCandles = async (assetId: string, startPrice: number, count: number = 300) => {
+    console.log(`📊 Generating ${count} historical candles with persistent trend for ${assetId}...`);
     
     const candles: any[] = [];
     const candleInterval = 60; // 60 seconds per candle
     const now = Math.floor(Date.now() / 1000);
     
     let price = startPrice;
-    let trend = (Math.random() - 0.5) * 0.002; // Random initial trend
+    
+    // Determine volatility by asset type (only 4 assets)
     let volatility = 0.0001;
-    
-    // Determine volatility by asset type
-    if (assetId.includes('BTC') || assetId.includes('ETH')) {
-      volatility = 0.003;
-    } else if (assetId.includes('JPY')) {
-      volatility = 0.008;
-    } else if (assetId.includes('GOLD') || assetId.includes('SILVER')) {
-      volatility = 0.002;
+    if (assetId.includes('BTC')) {
+      volatility = 0.002; // Bitcoin: moderate volatility
+    } else if (assetId.includes('GOLD')) {
+      volatility = 0.0015; // Gold: low volatility
+    } else {
+      volatility = 0.0008; // Forex: very low volatility
     }
     
-    for (let i = count - 1; i >= 0; i--) {
-      const timestamp = new Date((now - (i * candleInterval)) * 1000);
+    // 🎯 PERSISTENT TREND: Generate 3-5 trend periods to create realistic chart
+    const trendPeriods = 3 + Math.floor(Math.random() * 3); // 3-5 periods
+    const candlesPerPeriod = Math.floor(count / trendPeriods);
+    
+    let candleIndex = 0;
+    
+    for (let period = 0; period < trendPeriods; period++) {
+      // Each period has a consistent trend direction
+      const trendDirection = Math.random() > 0.5 ? 1 : -1; // Up or Down
+      const trendStrength = 0.0003 + Math.random() * 0.0007; // 0.03% to 0.1% per candle
+      const periodCandles = period === trendPeriods - 1 
+        ? count - candleIndex  // Last period gets remaining candles
+        : candlesPerPeriod;
       
-      // Realistic price movement with trends
-      const open = price;
+      console.log(`  Period ${period + 1}/${trendPeriods}: ${periodCandles} candles, trend: ${trendDirection > 0 ? 'UP ⬆️' : 'DOWN ⬇️'}`);
       
-      // Trend changes occasionally
-      if (Math.random() < 0.05) {
-        trend = (Math.random() - 0.5) * 0.003;
+      for (let i = 0; i < periodCandles && candleIndex < count; i++, candleIndex++) {
+        const timestamp = new Date((now - ((count - candleIndex - 1) * candleInterval)) * 1000);
+        
+        // Apply consistent trend with small random noise
+        const open = price;
+        const trendMove = trendDirection * trendStrength * open;
+        const noise = (Math.random() - 0.5) * volatility * open * 0.5;
+        const close = open + trendMove + noise;
+        
+        // High/Low with realistic wicks
+        const wickSize = Math.abs(close - open) * (0.5 + Math.random() * 1.5);
+        const high = Math.max(open, close) + wickSize * Math.random() * 0.6;
+        const low = Math.min(open, close) - wickSize * Math.random() * 0.6;
+        
+        // Determine decimals
+        let decimals = 5; // Default for Forex
+        if (assetId.includes('BTC') || assetId.includes('GOLD')) decimals = 2;
+        
+        candles.push({
+          assetId,
+          timestamp,
+          open: parseFloat(open.toFixed(decimals)).toString(),
+          high: parseFloat(high.toFixed(decimals)).toString(),
+          low: parseFloat(low.toFixed(decimals)).toString(),
+          close: parseFloat(close.toFixed(decimals)).toString(),
+          volume: (50000 + Math.random() * 100000).toString()
+        });
+        
+        price = close;
       }
-      
-      // Price movement with trend and noise
-      const movement = trend + (Math.random() - 0.5) * volatility;
-      const close = open * (1 + movement);
-      
-      // High/Low with realistic spread
-      const spread = Math.abs(close - open) * (1 + Math.random() * 2);
-      const high = Math.max(open, close) + spread * Math.random();
-      const low = Math.min(open, close) - spread * Math.random();
-      
-      candles.push({
-        assetId,
-        timestamp,
-        open: open.toString(),
-        high: high.toString(),
-        low: low.toString(),
-        close: close.toString(),
-        volume: (Math.random() * 1000000).toString()
-      });
-      
-      price = close;
     }
     
+    console.log(`✅ Generated ${candles.length} candles with ${trendPeriods} trend periods`);
     return candles;
   };
   
@@ -1168,14 +1164,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let candleCount = 0;
       
       try {
-        // Check existing candles in database
-        const existingCandles = await storage.getPriceData(asset.id, 100);
+        // Check existing candles in database (check for at least 300)
+        const existingCandles = await storage.getPriceData(asset.id, 300);
         candleCount = existingCandles.length;
         
-        if (candleCount === 0) {
-          // No data at all - generate initial 100 candles
-          console.log(`📊 ${pair}: No data found. Generating 100 initial candles...`);
-          const historicalCandles = await generateHistoricalCandles(asset.id, startPrice, 100);
+        if (candleCount < 50) {
+          // No data or insufficient data - generate initial 300 candles with persistent trend
+          console.log(`📊 ${pair}: Only ${candleCount} candles found. Generating 300 candles with persistent trend...`);
+          const historicalCandles = await generateHistoricalCandles(asset.id, startPrice, 300);
           
           // Save all candles to database
           for (const candle of historicalCandles) {
@@ -1184,8 +1180,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Use last candle's close as start price
           startPrice = parseFloat(historicalCandles[historicalCandles.length - 1].close);
-          candleCount = 100;
-          console.log(`✅ ${pair}: Generated 100 candles. Starting price: ${startPrice.toFixed(6)}`);
+          candleCount = 300;
+          console.log(`✅ ${pair}: Generated 300 candles with persistent trend. Starting price: ${startPrice.toFixed(6)}`);
         } else {
           // Resume from last saved price
           startPrice = parseFloat(existingCandles[0].close);
