@@ -1101,30 +1101,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // ✅ CRITICAL FIX: Initialize OTC markets from LAST SAVED PRICE in DB
-  storage.getAllAssets().then(async assets => {
-    for (const asset of assets) {
-      const pair = asset.id.replace('_OTC', '');
+  // ✅ Generate realistic historical candles for an asset
+  const generateHistoricalCandles = async (assetId: string, startPrice: number, count: number = 100) => {
+    console.log(`📊 Generating ${count} historical candles for ${assetId}...`);
+    
+    const candles: any[] = [];
+    const candleInterval = 60; // 60 seconds per candle
+    const now = Math.floor(Date.now() / 1000);
+    
+    let price = startPrice;
+    let trend = (Math.random() - 0.5) * 0.002; // Random initial trend
+    let volatility = 0.0001;
+    
+    // Determine volatility by asset type
+    if (assetId.includes('BTC') || assetId.includes('ETH')) {
+      volatility = 0.003;
+    } else if (assetId.includes('JPY')) {
+      volatility = 0.008;
+    } else if (assetId.includes('GOLD') || assetId.includes('SILVER')) {
+      volatility = 0.002;
+    }
+    
+    for (let i = count - 1; i >= 0; i--) {
+      const timestamp = new Date((now - (i * candleInterval)) * 1000);
       
-      // Try to get last price from price_data table (real data)
-      let startPrice = parseFloat(asset.currentPrice); // fallback
-      try {
-        const lastCandles = await storage.getPriceData(asset.id, 1);
-        if (lastCandles && lastCandles.length > 0) {
-          startPrice = parseFloat(lastCandles[0].close);
-          console.log(`✅ WebSocket starting from last DB price for ${pair}: ${startPrice}`);
-        } else {
-          console.log(`⚠️ No DB price for ${pair}, using asset price: ${startPrice}`);
-        }
-      } catch (error) {
-        console.log(`⚠️ Error loading last price for ${pair}, using asset price: ${startPrice}`);
+      // Realistic price movement with trends
+      const open = price;
+      
+      // Trend changes occasionally
+      if (Math.random() < 0.05) {
+        trend = (Math.random() - 0.5) * 0.003;
       }
       
+      // Price movement with trend and noise
+      const movement = trend + (Math.random() - 0.5) * volatility;
+      const close = open * (1 + movement);
+      
+      // High/Low with realistic spread
+      const spread = Math.abs(close - open) * (1 + Math.random() * 2);
+      const high = Math.max(open, close) + spread * Math.random();
+      const low = Math.min(open, close) - spread * Math.random();
+      
+      candles.push({
+        assetId,
+        timestamp,
+        open: open.toString(),
+        high: high.toString(),
+        low: low.toString(),
+        close: close.toString(),
+        volume: (Math.random() * 1000000).toString()
+      });
+      
+      price = close;
+    }
+    
+    return candles;
+  };
+  
+  // ✅ 24/7 CONTINUOUS OPERATION: Initialize OTC markets with full data persistence
+  storage.getAllAssets().then(async assets => {
+    console.log(`\n🚀 Initializing ${assets.length} OTC markets for 24/7 operation...`);
+    
+    for (const asset of assets) {
+      const pair = asset.id.replace('_OTC', '');
+      let startPrice = parseFloat(asset.currentPrice);
+      let candleCount = 0;
+      
+      try {
+        // Check existing candles in database
+        const existingCandles = await storage.getPriceData(asset.id, 100);
+        candleCount = existingCandles.length;
+        
+        if (candleCount === 0) {
+          // No data at all - generate initial 100 candles
+          console.log(`📊 ${pair}: No data found. Generating 100 initial candles...`);
+          const historicalCandles = await generateHistoricalCandles(asset.id, startPrice, 100);
+          
+          // Save all candles to database
+          for (const candle of historicalCandles) {
+            await storage.addPriceData(candle);
+          }
+          
+          // Use last candle's close as start price
+          startPrice = parseFloat(historicalCandles[historicalCandles.length - 1].close);
+          candleCount = 100;
+          console.log(`✅ ${pair}: Generated 100 candles. Starting price: ${startPrice.toFixed(6)}`);
+        } else {
+          // Resume from last saved price
+          startPrice = parseFloat(existingCandles[0].close);
+          const lastCandleTime = new Date(existingCandles[0].timestamp);
+          const minutesAgo = Math.floor((Date.now() - lastCandleTime.getTime()) / 60000);
+          
+          console.log(`♻️ ${pair}: Resuming from last price ${startPrice.toFixed(6)} (${candleCount} candles, ${minutesAgo} min ago)`);
+        }
+      } catch (error) {
+        console.error(`❌ ${pair}: Error loading data:`, error);
+      }
+      
+      // Initialize market with last known price
       otcMarkets[pair] = startPrice;
       priceMomentum[pair] = 0;
       priceHistory[pair] = [startPrice];
       
-      // Initialize first candle for each pair
+      // Initialize first candle for this session
       const currentTime = Math.floor(Date.now() / 1000);
       currentCandles[pair] = {
         pair,
@@ -1136,6 +1215,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         startTime: currentTime
       };
     }
+    
+    console.log(`\n🎯 ALL ${assets.length} OTC MARKETS READY - RUNNING 24/7`);
+    console.log(`📈 Markets will continue from last saved state`);
+    console.log(`💾 Auto-saving candles every 5 seconds to database\n`);
   });
 
   const generateOtcPriceUpdate = (pair: string, currentPrice: number) => {
@@ -1146,17 +1229,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!priceMomentum[pair]) priceMomentum[pair] = 0;
     if (!priceHistory[pair]) priceHistory[pair] = [last];
     
-    // Determine volatility based on asset type - Very low for natural movement
-    let volatility = 0.00002; // Much lower for realistic candles
+    // ✅ Determine volatility based on asset type AND time of day
+    let volatility = 0.00002;
     if (pair.includes('BTC') || pair.includes('ETH') || pair.includes('LTC') || pair.includes('XRP') || pair.includes('BNB') || pair.includes('ADA')) {
-      volatility = 0.0003; // Reduced crypto volatility
+      volatility = 0.0003;
     } else if (pair.includes('JPY')) {
-      volatility = 0.0008; // Much lower JPY volatility
+      volatility = 0.0008;
     } else if (pair.includes('GOLD') || pair.includes('SILVER') || pair.includes('OIL')) {
-      volatility = 0.0003; // Lower commodity volatility
+      volatility = 0.0003;
     } else if (pair.includes('SPX') || pair.includes('NDX') || pair.includes('DJI') || pair.includes('DAX') || pair.includes('CAC') || pair.includes('FTSE') || pair.includes('NIKKEI')) {
-      volatility = 0.0003; // Lower index volatility
+      volatility = 0.0003;
     }
+    
+    // ✅ Time-based volatility (trading session simulation)
+    const hour = new Date().getHours();
+    let timeMultiplier = 1.0;
+    
+    // London/NY sessions (higher volatility)
+    if ((hour >= 8 && hour <= 12) || (hour >= 13 && hour <= 17)) {
+      timeMultiplier = 1.5;
+    } 
+    // Asian session (medium volatility)
+    else if (hour >= 1 && hour <= 7) {
+      timeMultiplier = 1.2;
+    } 
+    // Off-hours (lower volatility)
+    else {
+      timeMultiplier = 0.7;
+    }
+    
+    volatility *= timeMultiplier;
     
     // Check for active trades on this pair to manipulate candles subtly
     let candleManipulation = 0;
