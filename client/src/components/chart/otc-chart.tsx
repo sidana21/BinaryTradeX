@@ -24,7 +24,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
   const seriesRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useRef(window.innerWidth < 768);
-  const priceLineRefs = useRef<Map<number, any>>(new Map());
+  const priceLineRefs = useRef<Map<string, any>>(new Map());
+  const verticalLineRefs = useRef<Map<string, any>>(new Map());
   const [currentTime, setCurrentTime] = useState(Math.floor(Date.now() / 1000));
 
   const { candles, currentPrice, isLoading, isConnected, error } = useOtcMarket({
@@ -62,8 +63,15 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
   const currentPairTrades = useMemo(() => {
     if (!openTrades || !pair) return [];
     const pairId = `${pair}_OTC`;
-    return openTrades.filter(trade => trade.assetId === pairId);
-  }, [openTrades, pair]);
+    const now = Math.floor(Date.now() / 1000);
+    
+    return openTrades.filter(trade => {
+      const isCurrentPair = trade.assetId === pairId;
+      const expiryTime = Math.floor(new Date(trade.expiryTime).getTime() / 1000);
+      const isNotExpired = expiryTime > now;
+      return isCurrentPair && isNotExpired;
+    });
+  }, [openTrades, pair, currentTime]);
 
   useImperativeHandle(ref, () => ({
     getCurrentPrice: () => currentPrice || 0,
@@ -200,12 +208,18 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
     });
     priceLineRefs.current.clear();
 
+    verticalLineRefs.current.forEach((marker) => {
+      seriesRef.current.removeMarker(marker);
+    });
+    verticalLineRefs.current.clear();
+
     if (!currentPairTrades || currentPairTrades.length === 0) {
       return;
     }
 
     currentPairTrades.forEach((trade) => {
       const entryPrice = parseFloat(trade.openPrice);
+      const entryTime = Math.floor(new Date(trade.createdAt).getTime() / 1000);
       const color = trade.type === 'CALL' ? '#22c55e' : '#ef4444';
       
       const priceLine = seriesRef.current.createPriceLine({
@@ -214,10 +228,21 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
         lineWidth: 2,
         lineStyle: 2,
         axisLabelVisible: true,
-        title: trade.type === 'CALL' ? '↑' : '↓',
+        title: trade.type === 'CALL' ? '↑ دخول' : '↓ دخول',
       });
       
       priceLineRefs.current.set(trade.id, priceLine);
+
+      const marker = {
+        time: entryTime,
+        position: 'inBar',
+        color: color,
+        shape: 'circle',
+        text: trade.type === 'CALL' ? '▲' : '▼',
+      };
+      
+      seriesRef.current.setMarkers([marker]);
+      verticalLineRefs.current.set(trade.id, marker);
     });
   }, [currentPairTrades]);
 
@@ -265,6 +290,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
             const entryPrice = parseFloat(trade.openPrice);
             const color = trade.type === 'CALL' ? 'bg-green-500/20 border-green-500' : 'bg-red-500/20 border-red-500';
             const textColor = trade.type === 'CALL' ? 'text-green-400' : 'text-red-400';
+            
+            if (remainingSeconds === 0) return null;
             
             return (
               <div 
