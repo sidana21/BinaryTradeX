@@ -616,39 +616,47 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     };
   }, []);
 
-  // Load candles when pair changes
+  // Load candles when pair changes - FORCE LOAD 100 CANDLES
   useEffect(() => {
-    console.log(`🔄 [PAIR CHANGE] Loading data for ${pair}`);
+    const timestamp = Date.now();
+    console.log(`[${timestamp}] 🔥 PAIR CHANGED TO: ${pair}`);
     
     currentPairRef.current = pair;
     isPairChangeRef.current = true;
     isDbLoadedRef.current = false;
     
+    // Clear old data immediately
+    candleBufferRef.current = [];
+    currentCandleRef.current = null;
+    
     // Wait for seriesRef to be ready
     if (!seriesRef.current) {
-      console.log('⏳ Waiting for chart series to be ready...');
+      console.log(`[${timestamp}] ⏳ Chart not ready, waiting...`);
       const checkInterval = setInterval(() => {
         if (seriesRef.current) {
           clearInterval(checkInterval);
+          console.log(`[${timestamp}] ✅ Chart ready, loading data...`);
           loadDataForPair();
         }
       }, 50);
       return () => clearInterval(checkInterval);
     }
     
+    console.log(`[${timestamp}] ✅ Chart ready, loading data immediately...`);
     loadDataForPair();
     
     function loadDataForPair() {
-      console.log(`⚡ Loading ${pair} data NOW...`);
+      const loadStart = Date.now();
+      console.log(`[${loadStart}] 📡 FETCHING /api/price-data/${pair}_OTC/with-current`);
       
       fetch(`/api/price-data/${pair}_OTC/with-current`)
         .then(res => {
-          console.log(`📡 API responded for ${pair}`);
+          console.log(`[${Date.now()}] ✅ API Response received for ${pair}`);
           return res.json();
         })
         .then(data => {
           const { candles, currentCandle, candleInterval } = data;
-          console.log(`🎯 RECEIVED: ${candles?.length || 0} candles for ${pair}`);
+          console.log(`[${Date.now()}] 🎯 GOT DATA: ${candles?.length || 0} candles, current: ${currentCandle ? 'YES' : 'NO'}`);
           
           if (candleInterval && candleInterval !== updateInterval) {
             setUpdateInterval(candleInterval);
@@ -666,7 +674,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             });
             
             candleBufferRef.current = uniqueCandles;
-            console.log(`✅ Buffer: ${uniqueCandles.length} candles`);
+            console.log(`[${Date.now()}] 💾 Stored ${uniqueCandles.length} candles in buffer`);
             
             if (currentCandle) {
               currentCandleRef.current = {
@@ -677,7 +685,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
                 close: currentCandle.close,
               };
               candleStartTimeRef.current = currentCandle.startTime;
-              console.log(`♻️ Current: ${currentCandle.close}`);
+              console.log(`[${Date.now()}] 📍 Current candle: ${currentCandle.close}`);
             } else {
               currentCandleRef.current = null;
               const lastCandle = uniqueCandles[uniqueCandles.length - 1];
@@ -685,26 +693,26 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
               candleStartTimeRef.current = lastCandleTime;
             }
             
+            const finalCandles = currentCandleRef.current 
+              ? [...uniqueCandles, currentCandleRef.current]
+              : uniqueCandles;
+            
             if (seriesRef.current) {
-              const allCandles = currentCandleRef.current 
-                ? [...uniqueCandles, currentCandleRef.current]
-                : uniqueCandles;
-              
-              console.log(`🎨 DISPLAYING ${allCandles.length} CANDLES!`);
-              seriesRef.current.setData(allCandles);
+              console.log(`[${Date.now()}] 🎨 RENDERING ${finalCandles.length} CANDLES TO CHART!!!`);
+              seriesRef.current.setData(finalCandles);
               setLastPrice(currentCandleRef.current?.close || uniqueCandles[uniqueCandles.length - 1].close);
               
               if (chartRef.current) {
                 setTimeout(() => {
                   chartRef.current?.timeScale().scrollToRealTime();
-                  console.log(`📍 Scrolled to latest`);
+                  console.log(`[${Date.now()}] 📍 Auto-scrolled to latest candle`);
                 }, 100);
               }
             }
             
-            console.log(`✅ ${pair} READY!`);
+            console.log(`[${Date.now()}] ✅✅✅ ${pair} FULLY LOADED WITH ${finalCandles.length} CANDLES! ✅✅✅`);
           } else {
-            console.log(`⚠️ No data for ${pair}`);
+            console.log(`[${Date.now()}] ⚠️ NO DATA RECEIVED for ${pair}`);
             candleBufferRef.current = [];
             currentCandleRef.current = null;
             candleStartTimeRef.current = 0;
@@ -717,7 +725,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           isDbLoadedRef.current = true;
         })
         .catch(err => {
-          console.error(`❌ Error for ${pair}:`, err);
+          console.error(`[${Date.now()}] ❌❌❌ ERROR loading ${pair}:`, err);
           candleBufferRef.current = [];
           currentCandleRef.current = null;
           candleStartTimeRef.current = 0;
