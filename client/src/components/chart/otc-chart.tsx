@@ -377,10 +377,76 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
         if (message.type === 'otc_price_tick') {
           const tick = message.data;
           console.log('Received price tick:', tick.pair, 'price:', tick.price);
+          
+          // DETECT PAIR CHANGE - Load 100 candles immediately!
+          if (tick.pair === currentPairRef.current && !isDbLoadedRef.current) {
+            console.log(`🎯 LOADING 100 CANDLES for ${tick.pair} NOW!`);
+            fetch(`/api/price-data/${tick.pair}_OTC/with-current`)
+              .then(res => res.json())
+              .then(data => {
+                const { candles, currentCandle, candleInterval } = data;
+                console.log(`✅ GOT ${candles?.length || 0} CANDLES!`);
+                
+                if (candleInterval && candleInterval !== updateInterval) {
+                  setUpdateInterval(candleInterval);
+                }
+                
+                if (candles && candles.length > 0) {
+                  const uniqueCandles = candles.reduce((acc: CandlestickData[], current: CandlestickData) => {
+                    const exists = acc.find(c => c.time === current.time);
+                    if (!exists) acc.push(current);
+                    return acc;
+                  }, []).sort((a: CandlestickData, b: CandlestickData) => {
+                    const timeA = typeof a.time === 'number' ? a.time : (a.time as any).timestamp || 0;
+                    const timeB = typeof b.time === 'number' ? b.time : (b.time as any).timestamp || 0;
+                    return timeA - timeB;
+                  });
+                  
+                  candleBufferRef.current = uniqueCandles;
+                  
+                  if (currentCandle) {
+                    currentCandleRef.current = {
+                      time: currentCandle.startTime as any,
+                      open: currentCandle.open,
+                      high: currentCandle.high,
+                      low: currentCandle.low,
+                      close: currentCandle.close,
+                    };
+                    candleStartTimeRef.current = currentCandle.startTime;
+                  } else {
+                    currentCandleRef.current = null;
+                    const lastCandle = uniqueCandles[uniqueCandles.length - 1];
+                    const lastCandleTime = typeof lastCandle.time === 'number' ? lastCandle.time : (lastCandle.time as any).timestamp || 0;
+                    candleStartTimeRef.current = lastCandleTime;
+                  }
+                  
+                  if (seriesRef.current) {
+                    const allCandles = currentCandleRef.current 
+                      ? [...uniqueCandles, currentCandleRef.current]
+                      : uniqueCandles;
+                    
+                    console.log(`📊 DISPLAYING ${allCandles.length} CANDLES ON CHART!`);
+                    seriesRef.current.setData(allCandles);
+                    setLastPrice(currentCandleRef.current?.close || uniqueCandles[uniqueCandles.length - 1].close);
+                    
+                    if (chartRef.current) {
+                      setTimeout(() => chartRef.current?.timeScale().scrollToRealTime(), 100);
+                    }
+                  }
+                }
+                
+                isDbLoadedRef.current = true;
+              })
+              .catch(err => {
+                console.error(`❌ Error loading candles:`, err);
+                isDbLoadedRef.current = true;
+              });
+            return;
+          }
+          
           if (tick.pair === currentPairRef.current) {
             // Wait for DB data to load before processing ticks
             if (!isDbLoadedRef.current) {
-              console.log('Waiting for DB data to load before processing ticks...');
               return;
             }
             
@@ -448,6 +514,38 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
             const allCandles = currentCandleRef.current 
               ? [...candleBufferRef.current, currentCandleRef.current]
               : candleBufferRef.current;
+            
+            // 🔥 CRITICAL FIX: If we have very few candles, load from database!
+            if (allCandles.length <= 5 && !isDbLoadedRef.current && seriesRef.current) {
+              console.log(`⚡ EMERGENCY LOAD: Only ${allCandles.length} candles! Loading from DB...`);
+              fetch(`/api/price-data/${currentPairRef.current}_OTC/with-current`)
+                .then(res => res.json())
+                .then(data => {
+                  const { candles } = data;
+                  if (candles && candles.length > 10) {
+                    console.log(`✅ LOADED ${candles.length} CANDLES FROM DB!`);
+                    candleBufferRef.current = candles.sort((a: any, b: any) => {
+                      const timeA = typeof a.time === 'number' ? a.time : a.time?.timestamp || 0;
+                      const timeB = typeof b.time === 'number' ? b.time : b.time?.timestamp || 0;
+                      return timeA - timeB;
+                    });
+                    const allFixed = currentCandleRef.current 
+                      ? [...candleBufferRef.current, currentCandleRef.current]
+                      : candleBufferRef.current;
+                    seriesRef.current?.setData(allFixed);
+                    console.log(`📊 NOW SHOWING ${allFixed.length} CANDLES!`);
+                    if (chartRef.current) {
+                      setTimeout(() => chartRef.current?.timeScale().scrollToRealTime(), 100);
+                    }
+                  }
+                  isDbLoadedRef.current = true;
+                })
+                .catch(err => {
+                  console.error(`❌ Emergency load failed:`, err);
+                  isDbLoadedRef.current = true;
+                });
+            }
+            
             console.log('Updating chart with', allCandles.length, 'candles, current candle:', currentCandleRef.current);
             seriesRef.current?.setData(allCandles);
             
