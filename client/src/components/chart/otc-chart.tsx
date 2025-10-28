@@ -1,5 +1,5 @@
-import { useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from "react";
-import { createChart, IChartApi, CandlestickSeries } from "lightweight-charts";
+import { useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useState } from "react";
+import { createChart, IChartApi, CandlestickSeries, ISeriesApi, Time } from "lightweight-charts";
 import { useOtcMarket } from "@/hooks/use-otc-market";
 
 interface OtcChartProps {
@@ -24,12 +24,21 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
   const seriesRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useRef(window.innerWidth < 768);
+  const priceLineRefs = useRef<Map<number, any>>(new Map());
+  const [currentTime, setCurrentTime] = useState(Math.floor(Date.now() / 1000));
 
   const { candles, currentPrice, isLoading, isConnected, error } = useOtcMarket({
     pair,
     candleInterval: 60,
     onPriceUpdate,
   });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Math.floor(Date.now() / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const uniqueCandles = useMemo(() => {
     const seen = new Map();
@@ -177,6 +186,53 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
     }
   }, [uniqueCandles]);
 
+  useEffect(() => {
+    if (!seriesRef.current || !openTrades || openTrades.length === 0) {
+      priceLineRefs.current.forEach((line) => {
+        if (seriesRef.current) {
+          seriesRef.current.removePriceLine(line);
+        }
+      });
+      priceLineRefs.current.clear();
+      return;
+    }
+
+    const currentTradeIds = new Set(openTrades.map(t => t.id));
+    
+    priceLineRefs.current.forEach((line, tradeId) => {
+      if (!currentTradeIds.has(tradeId)) {
+        if (seriesRef.current) {
+          seriesRef.current.removePriceLine(line);
+        }
+        priceLineRefs.current.delete(tradeId);
+      }
+    });
+
+    openTrades.forEach((trade) => {
+      if (!priceLineRefs.current.has(trade.id)) {
+        const entryPrice = parseFloat(trade.openPrice);
+        const color = trade.type === 'CALL' ? '#22c55e' : '#ef4444';
+        
+        const priceLine = seriesRef.current.createPriceLine({
+          price: entryPrice,
+          color: color,
+          lineWidth: 2,
+          lineStyle: 2,
+          axisLabelVisible: true,
+          title: trade.type === 'CALL' ? '↑' : '↓',
+        });
+        
+        priceLineRefs.current.set(trade.id, priceLine);
+      }
+    });
+  }, [openTrades]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" data-testid="chart-container" />
@@ -204,6 +260,44 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
         <div className="absolute top-4 left-4 bg-[#1a2033]/90 px-4 py-2 rounded" data-testid="chart-current-price">
           <div className="text-xs text-gray-400">السعر الحالي</div>
           <div className="text-lg font-bold text-white">{currentPrice.toFixed(5)}</div>
+        </div>
+      )}
+
+      {openTrades && openTrades.length > 0 && (
+        <div className="absolute top-16 left-4 space-y-2" data-testid="chart-countdowns">
+          {openTrades.map((trade) => {
+            const expiryTime = Math.floor(new Date(trade.expiryTime).getTime() / 1000);
+            const remainingSeconds = Math.max(0, expiryTime - currentTime);
+            const entryPrice = parseFloat(trade.openPrice);
+            const color = trade.type === 'CALL' ? 'bg-green-500/20 border-green-500' : 'bg-red-500/20 border-red-500';
+            const textColor = trade.type === 'CALL' ? 'text-green-400' : 'text-red-400';
+            
+            return (
+              <div 
+                key={trade.id} 
+                className={`${color} border px-3 py-2 rounded-lg backdrop-blur-sm`}
+                data-testid={`countdown-${trade.id}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`text-xl font-bold ${textColor}`}>
+                    {trade.type === 'CALL' ? '↑' : '↓'}
+                  </span>
+                  <div>
+                    <div className="text-xs text-gray-400">الوقت المتبقي</div>
+                    <div className={`text-lg font-mono font-bold ${textColor}`}>
+                      {formatTime(remainingSeconds)}
+                    </div>
+                  </div>
+                  <div className="ml-2">
+                    <div className="text-xs text-gray-400">سعر الدخول</div>
+                    <div className="text-sm font-mono text-white">
+                      {entryPrice.toFixed(5)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
