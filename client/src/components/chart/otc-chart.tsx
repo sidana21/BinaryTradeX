@@ -293,12 +293,15 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
     seriesRef.current = candleSeries;
 
     // 🚀 IMMEDIATE INITIAL DATA LOAD (like Pocket Option)
-    const initialPair = currentPairRef.current;
-    fetch(`/api/price-data/${initialPair}_OTC/with-current`)
-      .then(res => res.json())
+    console.log(`⚡ Loading initial data for ${pair}`);
+    fetch(`/api/price-data/${pair}_OTC/with-current`)
+      .then(res => {
+        console.log(`📡 API Response received for ${pair}`);
+        return res.json();
+      })
       .then(data => {
         const { candles, currentCandle, candleInterval } = data;
-        console.log(`🎯 INITIAL LOAD: ${candles.length} candles for ${initialPair}`);
+        console.log(`🎯 INITIAL LOAD: ${candles?.length || 0} candles for ${pair}`);
         
         if (candles && candles.length > 0) {
           const uniqueCandles = candles.reduce((acc: CandlestickData[], current: CandlestickData) => {
@@ -312,6 +315,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
           });
           
           candleBufferRef.current = uniqueCandles;
+          console.log(`✅ Buffer set: ${uniqueCandles.length} candles`);
           
           if (currentCandle) {
             currentCandleRef.current = {
@@ -322,23 +326,30 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ pair = "EURUSD", dura
               close: currentCandle.close,
             };
             candleStartTimeRef.current = currentCandle.startTime;
+            console.log(`♻️ Current candle: ${currentCandle.close}`);
           }
           
           const allCandles = currentCandleRef.current 
             ? [...uniqueCandles, currentCandleRef.current]
             : uniqueCandles;
           
-          console.log(`✅ INSTANT DISPLAY: ${allCandles.length} candles loaded!`);
+          console.log(`🎨 DISPLAYING ${allCandles.length} CANDLES NOW!`);
           candleSeries.setData(allCandles);
           setLastPrice(currentCandleRef.current?.close || uniqueCandles[uniqueCandles.length - 1].close);
           
-          setTimeout(() => chart.timeScale().scrollToRealTime(), 100);
+          setTimeout(() => {
+            chart.timeScale().scrollToRealTime();
+            console.log(`📍 Scrolled to latest candle`);
+          }, 100);
+        } else {
+          console.log(`⚠️ No candles received for ${pair}`);
         }
         
         isDbLoadedRef.current = true;
+        console.log(`✅ DB load complete for ${pair}`);
       })
       .catch(err => {
-        console.error('Initial load error:', err);
+        console.error(`❌ Initial load error for ${pair}:`, err);
         isDbLoadedRef.current = true;
       });
 
