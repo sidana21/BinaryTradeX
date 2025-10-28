@@ -5,6 +5,8 @@ import { storage } from "./storage";
 import { insertTradeSchema, insertDepositSchema, insertWithdrawalSchema, updateSettingsSchema, type Trade } from "@shared/schema";
 import { z } from "zod";
 import axios from "axios";
+import { MarketEngine, CandleSchema, PriceTickSchema } from "./market-engine";
+import { WebSocketHandler } from "./websocket-handler";
 
 const BINOMO_SERVICE_URL = process.env.BINOMO_SERVICE_URL || 'http://localhost:5001';
 
