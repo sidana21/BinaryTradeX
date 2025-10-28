@@ -1058,14 +1058,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Load historical candles from DB
       const dbCandles = await storage.getPriceData(assetId, count);
-      const candles = dbCandles.map(pd => ({
-        time: Math.floor(new Date(pd.timestamp).getTime() / 1000),
-        open: parseFloat(pd.open),
-        high: parseFloat(pd.high),
-        low: parseFloat(pd.low),
-        close: parseFloat(pd.close),
-        volume: 0
-      })).reverse();
+      const candles = dbCandles
+        .filter(pd => pd.open && pd.high && pd.low && pd.close)
+        .map(pd => ({
+          time: Math.floor(new Date(pd.timestamp).getTime() / 1000),
+          open: parseFloat(pd.open),
+          high: parseFloat(pd.high),
+          low: parseFloat(pd.low),
+          close: parseFloat(pd.close),
+          volume: 0
+        }))
+        .filter(candle => 
+          !isNaN(candle.open) && 
+          !isNaN(candle.high) && 
+          !isNaN(candle.low) && 
+          !isNaN(candle.close)
+        )
+        .reverse();
       
       // Get current incomplete candle from server's currentCandles
       const pair = assetId.replace('_OTC', '');
