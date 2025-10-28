@@ -4,9 +4,21 @@
 
 This project is a binary options trading platform featuring a React frontend and an Express backend. It enables users to trade various financial assets (forex, crypto, commodities, indices) with real-time price updates via WebSocket. Key capabilities include executing CALL/PUT trades with configurable expiry times, managing demo and real account balances, and tracking trading history. The platform aims to provide a robust, user-friendly trading experience, positioned for market entry in the online trading sector.
 
-## Recent Updates (Oct 26, 2025)
+## Recent Updates
 
-- **Guest Account Restrictions**: Implemented security controls for guest users
+### Oct 28, 2025 - Database Optimization & Auto-Cleanup
+- **Critical Fix**: Resolved database overflow issue (exceeded 512 MB limit)
+  - **Root Cause**: 38 OTC markets generating ~657,000 candles/day was filling database rapidly
+  - **Solution Implemented**: Automatic data cleanup system
+    - Keeps only **2 days of historical data** (~300k candles, ~66 MB)
+    - Runs cleanup **every 2 hours** to prevent overflow
+    - Uses efficient indexing (`price_data_asset_timestamp_idx`) for fast queries
+  - **Database Performance**: Optimized from 628 MB → 66 MB (90% reduction)
+  - **Trade-off**: Reduced historical data retention from 7 days to 2 days to stay within free tier limits
+  - **Future Consideration**: Upgrade to paid database tier for longer data retention
+
+### Oct 26, 2025 - Guest Account Restrictions
+- **Security Enhancement**: Implemented controls for guest users
   - **Real Account Lock**: Guests cannot access real account balance or switch to real account mode
   - **Login Dialog**: When guests attempt to switch to real account, a dialog appears prompting them to login/signup
   - **Demo-Only Trading**: Guest users are automatically kept in demo account mode

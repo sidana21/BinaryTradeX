@@ -1220,10 +1220,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log(`📈 Markets will continue from last saved state`);
     console.log(`💾 Auto-saving candles every 5 seconds to database\n`);
     
-    // 🗑️ AUTO-CLEANUP: Delete data older than 7 days to prevent database overflow
+    // 🗑️ AUTO-CLEANUP: Delete data older than 2 days to prevent database overflow
+    // With 38 markets × 12 candles/min = 456 candles/min = ~657k candles/day
+    // We keep only 2 days (~300k candles) to stay under 512MB limit
     const cleanupOldData = async () => {
       try {
-        const daysToKeep = 7;
+        const daysToKeep = 2;  // Keep only 2 days of data
         const deletedCount = await storage.cleanupOldPriceData(daysToKeep);
         
         if (deletedCount > 0) {
@@ -1237,9 +1239,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Run cleanup immediately on startup
     cleanupOldData();
     
-    // Then run cleanup every 24 hours
-    setInterval(cleanupOldData, 24 * 60 * 60 * 1000);
-    console.log(`🗑️ Auto-cleanup enabled: keeping last 7 days of data\n`);
+    // Run cleanup every 2 hours (more frequent to prevent overflow)
+    setInterval(cleanupOldData, 2 * 60 * 60 * 1000);
+    console.log(`🗑️ Auto-cleanup enabled: keeping last 2 days of data, running every 2 hours\n`);
   });
 
   const generateOtcPriceUpdate = (pair: string, currentPrice: number) => {
