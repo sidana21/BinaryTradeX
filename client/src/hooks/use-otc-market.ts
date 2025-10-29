@@ -60,6 +60,7 @@ export function useOtcMarket({
   const currentCandleRef = useRef<CandleData | null>(null);
   const candleStartTimeRef = useRef<number>(0);
   const isInitializedRef = useRef(false);
+  const handlePriceTickRef = useRef<((tick: any) => void) | null>(null);
 
   // Validate and add candle
   const validateAndAddCandle = useCallback((candle: any): CandleData | null => {
@@ -187,6 +188,11 @@ export function useOtcMarket({
     }
   }, [pair, candleInterval, onPriceUpdate, validateAndAddCandle]);
 
+  // Update ref when handlePriceTick changes
+  useEffect(() => {
+    handlePriceTickRef.current = handlePriceTick;
+  }, [handlePriceTick]);
+
   // Load historical data when pair changes
   useEffect(() => {
     isInitializedRef.current = false;
@@ -221,8 +227,8 @@ export function useOtcMarket({
       try {
         const message = JSON.parse(event.data);
         
-        if (message.type === 'otc_price_tick') {
-          handlePriceTick(message.data);
+        if (message.type === 'otc_price_tick' && handlePriceTickRef.current) {
+          handlePriceTickRef.current(message.data);
         }
       } catch (err) {
         console.error('WebSocket message error:', err);
