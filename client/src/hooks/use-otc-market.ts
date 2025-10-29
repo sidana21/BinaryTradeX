@@ -199,12 +199,16 @@ export function useOtcMarket({
     loadHistoricalCandles();
     
     // Setup WebSocket
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
+    const protocol = location.protocol === "https:" ? "wss" : "ws";
+    const socketUrl = `${protocol}://${location.host}/ws`;
+    
+    console.log(`🔌 Connecting to WebSocket for ${pair}:`, socketUrl);
+    
+    const ws = new WebSocket(socketUrl);
     wsRef.current = ws;
     
     ws.onopen = () => {
-      console.log('WebSocket connected for', pair);
+      console.log(`✅ WebSocket connected for ${pair}`);
       setIsConnected(true);
       setError(null);
     };
@@ -222,13 +226,13 @@ export function useOtcMarket({
     };
     
     ws.onerror = (err) => {
-      console.error('WebSocket error:', err);
+      console.error(`⚠️ WebSocket error for ${pair}:`, err);
       setError('WebSocket connection error');
       setIsConnected(false);
     };
     
     ws.onclose = () => {
-      console.log('WebSocket disconnected');
+      console.log(`❌ WebSocket disconnected for ${pair}`);
       setIsConnected(false);
     };
     
