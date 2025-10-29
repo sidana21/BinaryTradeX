@@ -1,5 +1,5 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useState } from "react";
-import { createChart, IChartApi, CandlestickSeries } from "lightweight-charts";
+import { createChart, IChartApi, CandlestickSeries, LineSeries, HistogramSeries } from "lightweight-charts";
 import { useOtcMarket } from "@/hooks/use-otc-market";
 
 interface OtcChartProps {
@@ -7,6 +7,8 @@ interface OtcChartProps {
   duration?: number;
   onPriceUpdate?: (price: number) => void;
   openTrades?: any[];
+  showEMA?: boolean;
+  showVolume?: boolean;
 }
 
 export interface OtcChartRef {
@@ -14,14 +16,27 @@ export interface OtcChartRef {
   placeTrade: (type: "buy" | "sell") => void;
 }
 
+interface CandleData {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
 const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({ 
   pair = "EURUSD", 
   duration = 60, 
   onPriceUpdate,
-  openTrades = [] 
+  openTrades = [],
+  showEMA = true,
+  showVolume = false
 }, ref) => {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<any>(null);
+  const ema20Ref = useRef<any>(null);
+  const ema50Ref = useRef<any>(null);
+  const volumeRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useRef(window.innerWidth < 768);
   const priceLineRefs = useRef<Map<string, any>>(new Map());
@@ -59,6 +74,41 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
       return timeA - timeB;
     });
   }, [candles]);
+
+  const calculateEMA = useMemo(() => (data: CandleData[], period: number) => {
+    if (data.length < period) return [];
+    
+    const multiplier = 2 / (period + 1);
+    const emaData: any[] = [];
+    
+    let ema = data.slice(0, period).reduce((sum, candle) => sum + candle.close, 0) / period;
+    emaData.push({ time: data[period - 1].time, value: ema });
+    
+    for (let i = period; i < data.length; i++) {
+      ema = (data[i].close - ema) * multiplier + ema;
+      emaData.push({ time: data[i].time, value: ema });
+    }
+    
+    return emaData;
+  }, []);
+
+  const calculateVolume = useMemo(() => (data: CandleData[]) => {
+    return data.map(candle => ({
+      time: candle.time,
+      value: Math.abs(candle.close - candle.open) * 100000,
+      color: candle.close >= candle.open ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'
+    }));
+  }, []);
+
+  const indicators = useMemo(() => {
+    if (uniqueCandles.length === 0) return null;
+    
+    return {
+      ema20: showEMA ? calculateEMA(uniqueCandles, 20) : [],
+      ema50: showEMA ? calculateEMA(uniqueCandles, 50) : [],
+      volume: showVolume ? calculateVolume(uniqueCandles) : []
+    };
+  }, [uniqueCandles, showEMA, showVolume, calculateEMA, calculateVolume]);
 
   const currentPairTrades = useMemo(() => {
     if (!openTrades || !pair) return [];
@@ -156,16 +206,54 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
     chartRef.current = chart;
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#22c55e',
+      upColor: '#10b981',
       downColor: '#ef4444',
       borderVisible: true,
-      borderUpColor: '#22c55e',
+      borderUpColor: '#10b981',
       borderDownColor: '#ef4444',
-      wickUpColor: '#22c55e',
+      wickUpColor: '#10b981',
       wickDownColor: '#ef4444',
     });
     
     seriesRef.current = candleSeries;
+
+    if (showEMA) {
+      try {
+        const ema20Series = chart.addSeries(LineSeries, {
+          color: '#3b82f6',
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          crosshairMarkerVisible: false,
+        });
+        ema20Ref.current = ema20Series;
+
+        const ema50Series = chart.addSeries(LineSeries, {
+          color: '#f59e0b',
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          crosshairMarkerVisible: false,
+        });
+        ema50Ref.current = ema50Series;
+      } catch (err) {
+        console.error('Error adding EMA series:', err);
+      }
+    }
+
+    if (showVolume) {
+      try {
+        const volumeSeries = chart.addSeries(HistogramSeries, {
+          priceFormat: {
+            type: 'volume',
+          },
+          priceScaleId: '',
+        });
+        volumeRef.current = volumeSeries;
+      } catch (err) {
+        console.error('Error adding volume series:', err);
+      }
+    }
 
     const handleResize = () => {
       if (containerRef.current && chartRef.current) {
@@ -189,6 +277,19 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
       try {
         seriesRef.current.setData(uniqueCandles);
         
+        if (indicators && showEMA) {
+          if (ema20Ref.current && indicators.ema20.length > 0) {
+            ema20Ref.current.setData(indicators.ema20);
+          }
+          if (ema50Ref.current && indicators.ema50.length > 0) {
+            ema50Ref.current.setData(indicators.ema50);
+          }
+        }
+        
+        if (indicators && showVolume && volumeRef.current && indicators.volume.length > 0) {
+          volumeRef.current.setData(indicators.volume);
+        }
+        
         if (chartRef.current) {
           setTimeout(() => {
             chartRef.current?.timeScale().scrollToRealTime();
@@ -198,7 +299,7 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
         console.error('Error setting chart data:', err);
       }
     }
-  }, [uniqueCandles]);
+  }, [uniqueCandles, indicators, showEMA, showVolume]);
 
   useEffect(() => {
     if (!seriesRef.current) return;
@@ -246,6 +347,24 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
     });
   }, [currentPairTrades]);
 
+  const trendInfo = useMemo(() => {
+    if (!indicators?.ema20 || !indicators?.ema50 || indicators.ema20.length === 0 || indicators.ema50.length === 0) return null;
+    
+    const lastEma20 = indicators.ema20[indicators.ema20.length - 1]?.value;
+    const lastEma50 = indicators.ema50[indicators.ema50.length - 1]?.value;
+    
+    if (!lastEma20 || !lastEma50) return null;
+    
+    const diff = ((lastEma20 - lastEma50) / lastEma50) * 100;
+    const strength = Math.abs(diff);
+    const direction = diff > 0 ? 'صاعد' : 'هابط';
+    const color = diff > 0 ? 'text-green-400' : 'text-red-400';
+    const bgColor = diff > 0 ? 'bg-green-500/10' : 'bg-red-500/10';
+    const borderColor = diff > 0 ? 'border-green-500/30' : 'border-red-500/30';
+    
+    return { strength: strength.toFixed(2), direction, color, bgColor, borderColor, diff };
+  }, [indicators]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -257,61 +376,77 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
       <div ref={containerRef} className="w-full h-full" data-testid="chart-container" />
       
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#0a0e1a]/80" data-testid="chart-loading">
-          <div className="text-white">جاري تحميل البيانات...</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-[#0a0e1a]/90 backdrop-blur-sm" data-testid="chart-loading">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <div className="text-white font-medium">جاري تحميل البيانات المتقدمة...</div>
+          </div>
         </div>
       )}
       
       {error && (
-        <div className="absolute top-4 left-4 right-4 bg-red-500/20 border border-red-500 text-red-300 px-4 py-2 rounded" data-testid="chart-error">
-          {error}
+        <div className="absolute top-4 left-4 right-4 bg-red-500/20 border border-red-500 text-red-300 px-4 py-2 rounded-lg backdrop-blur-sm" data-testid="chart-error">
+          ⚠️ {error}
         </div>
       )}
       
-      <div className="absolute top-4 right-4 flex items-center gap-2" data-testid="chart-status">
-        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-        <span className="text-xs text-gray-400">
-          {isConnected ? 'متصل' : 'غير متصل'}
-        </span>
+      <div className="absolute top-4 right-4 flex flex-col gap-2" data-testid="chart-indicators">
+        <div className="flex items-center gap-2 bg-[#1a2033]/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-[#2a3447]">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+          <span className="text-xs font-medium text-gray-300">
+            {isConnected ? 'متصل' : 'غير متصل'}
+          </span>
+        </div>
+        
+        {currentPrice && (
+          <div className="bg-[#1a2033]/90 backdrop-blur-sm px-4 py-3 rounded-lg border border-[#2a3447]" data-testid="chart-current-price">
+            <div className="text-xs text-gray-400 mb-1">السعر الحالي</div>
+            <div className="text-2xl font-bold text-white font-mono">{currentPrice.toFixed(5)}</div>
+          </div>
+        )}
+        
+        {showEMA && trendInfo && (
+          <div className={`${trendInfo.bgColor} backdrop-blur-sm px-4 py-3 rounded-lg border ${trendInfo.borderColor}`} data-testid="trend-indicator">
+            <div className="text-xs text-gray-400 mb-1">قوة الاتجاه</div>
+            <div className={`text-lg font-bold ${trendInfo.color}`}>
+              {trendInfo.direction} {trendInfo.diff > 0 ? '↑' : '↓'}
+            </div>
+            <div className="text-xs text-gray-300 mt-1">{trendInfo.strength}%</div>
+          </div>
+        )}
       </div>
-      
-      {currentPrice && (
-        <div className="absolute top-4 left-4 bg-[#1a2033]/90 px-4 py-2 rounded" data-testid="chart-current-price">
-          <div className="text-xs text-gray-400">السعر الحالي</div>
-          <div className="text-lg font-bold text-white">{currentPrice.toFixed(5)}</div>
-        </div>
-      )}
 
       {currentPairTrades && currentPairTrades.length > 0 && (
-        <div className="absolute top-16 left-4 space-y-2" data-testid="chart-countdowns">
+        <div className="absolute top-4 left-4 space-y-2 max-w-xs" data-testid="chart-countdowns">
           {currentPairTrades.map((trade) => {
             const expiryTime = Math.floor(new Date(trade.expiryTime).getTime() / 1000);
             const remainingSeconds = Math.max(0, expiryTime - currentTime);
             const entryPrice = parseFloat(trade.openPrice);
-            const color = trade.type === 'CALL' ? 'bg-green-500/20 border-green-500' : 'bg-red-500/20 border-red-500';
+            const color = trade.type === 'CALL' ? 'bg-green-500/10 border-green-500/50' : 'bg-red-500/10 border-red-500/50';
             const textColor = trade.type === 'CALL' ? 'text-green-400' : 'text-red-400';
+            const bgGlow = trade.type === 'CALL' ? 'shadow-green-500/20' : 'shadow-red-500/20';
             
             if (remainingSeconds === 0) return null;
             
             return (
               <div 
                 key={trade.id} 
-                className={`${color} border px-3 py-2 rounded-lg backdrop-blur-sm`}
+                className={`${color} border-2 px-4 py-3 rounded-xl backdrop-blur-md shadow-lg ${bgGlow}`}
                 data-testid={`countdown-${trade.id}`}
               >
-                <div className="flex items-center gap-2">
-                  <span className={`text-xl font-bold ${textColor}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`text-3xl font-bold ${textColor}`}>
                     {trade.type === 'CALL' ? '↑' : '↓'}
-                  </span>
-                  <div>
-                    <div className="text-xs text-gray-400">الوقت المتبقي</div>
-                    <div className={`text-lg font-mono font-bold ${textColor}`}>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs text-gray-400 mb-1">الوقت المتبقي</div>
+                    <div className={`text-xl font-mono font-bold ${textColor}`}>
                       {formatTime(remainingSeconds)}
                     </div>
                   </div>
-                  <div className="ml-2">
-                    <div className="text-xs text-gray-400">سعر الدخول</div>
-                    <div className="text-sm font-mono text-white">
+                  <div>
+                    <div className="text-xs text-gray-400 mb-1">سعر الدخول</div>
+                    <div className="text-sm font-mono font-semibold text-white">
                       {entryPrice.toFixed(5)}
                     </div>
                   </div>
