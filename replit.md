@@ -6,6 +6,18 @@ This project is a binary options trading platform featuring a React frontend and
 
 ## Recent Updates
 
+### Oct 29, 2025 - WebSocket Connection Stability Fix
+- **Critical Bug Fix**: Resolved black screen issue caused by excessive WebSocket reconnections
+  - **Problem**: `useOtcMarket` hook was creating new WebSocket connections on every render due to callback dependencies in useEffect
+  - **Solution**: Implemented ref-based callback pattern to maintain stable WebSocket connection while allowing dynamic handler updates
+  - **Impact**: Trading page now loads consistently without freezing, WebSocket connections reduced from dozens per second to 1-2 per session
+- **Technical Implementation**:
+  - **Separation of Concerns**: Split data loading and WebSocket setup into separate useEffect hooks
+  - **Stale Closure Prevention**: Used `handlePriceTickRef` to always access latest callback without recreating WebSocket
+  - **Asset Switching**: Maintains stable connection while updating price handlers when users switch between trading pairs
+  - **Cleanup Management**: Proper WebSocket cleanup on component unmount prevents memory leaks
+- **User Experience**: Smooth page transitions, responsive UI during trades, stable real-time price updates
+
 ### Oct 28, 2025 - OTC Market Reduction & Enhanced Trend Visualization
 - **Market Optimization**: Reduced OTC markets from 38 to 4 best-performing assets
   - **Assets**: EURUSD_OTC, GBPUSD_OTC, BTCUSD_OTC, GOLD_OTC
