@@ -304,21 +304,26 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
   useEffect(() => {
     if (!seriesRef.current) return;
 
-    priceLineRefs.current.forEach((line) => {
-      seriesRef.current.removePriceLine(line);
-    });
-    priceLineRefs.current.clear();
+    const currentTradeIds = new Set(currentPairTrades?.map(t => t.id) || []);
+    const existingTradeIds = new Set(priceLineRefs.current.keys());
 
-    verticalLineRefs.current.forEach((marker) => {
-      seriesRef.current.removeMarker(marker);
+    const tradesToRemove = Array.from(existingTradeIds).filter(id => !currentTradeIds.has(id));
+    tradesToRemove.forEach(id => {
+      const line = priceLineRefs.current.get(id);
+      if (line) {
+        seriesRef.current.removePriceLine(line);
+        priceLineRefs.current.delete(id);
+      }
+      verticalLineRefs.current.delete(id);
     });
-    verticalLineRefs.current.clear();
 
     if (!currentPairTrades || currentPairTrades.length === 0) {
       return;
     }
 
-    currentPairTrades.forEach((trade) => {
+    const tradesToAdd = currentPairTrades.filter(trade => !existingTradeIds.has(trade.id));
+    
+    tradesToAdd.forEach((trade) => {
       const entryPrice = parseFloat(trade.openPrice);
       const entryTime = Math.floor(new Date(trade.createdAt).getTime() / 1000);
       const color = trade.type === 'CALL' ? '#22c55e' : '#ef4444';
@@ -342,7 +347,8 @@ const OtcChart = forwardRef<OtcChartRef, OtcChartProps>(({
         text: trade.type === 'CALL' ? '▲' : '▼',
       };
       
-      seriesRef.current.setMarkers([marker]);
+      const allMarkers = Array.from(verticalLineRefs.current.values()).concat([marker]);
+      seriesRef.current.setMarkers(allMarkers);
       verticalLineRefs.current.set(trade.id, marker);
     });
   }, [currentPairTrades]);
