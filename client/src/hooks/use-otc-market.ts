@@ -187,28 +187,32 @@ export function useOtcMarket({
     }
   }, [pair, candleInterval, onPriceUpdate, validateAndAddCandle]);
 
-  // Setup WebSocket
+  // Load historical data when pair changes
   useEffect(() => {
-    // Reset state when pair changes
     isInitializedRef.current = false;
     currentCandleRef.current = null;
     setCandles([]);
     setCurrentPrice(null);
-    
-    // Load historical data
     loadHistoricalCandles();
+  }, [pair, loadHistoricalCandles]);
+
+  // Setup WebSocket (separate from data loading)
+  useEffect(() => {
+    // Don't create new WebSocket if one already exists
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.CONNECTING || wsRef.current.readyState === WebSocket.OPEN)) {
+      return;
+    }
     
-    // Setup WebSocket
     const protocol = location.protocol === "https:" ? "wss" : "ws";
     const socketUrl = `${protocol}://${location.host}/ws`;
     
-    console.log(`🔌 Connecting to WebSocket for ${pair}:`, socketUrl);
+    console.log(`🔌 Connecting to WebSocket:`, socketUrl);
     
     const ws = new WebSocket(socketUrl);
     wsRef.current = ws;
     
     ws.onopen = () => {
-      console.log(`✅ WebSocket connected for ${pair}`);
+      console.log(`✅ WebSocket connected`);
       setIsConnected(true);
       setError(null);
     };
@@ -226,20 +230,23 @@ export function useOtcMarket({
     };
     
     ws.onerror = (err) => {
-      console.error(`⚠️ WebSocket error for ${pair}:`, err);
+      console.error(`⚠️ WebSocket error:`, err);
       setError('WebSocket connection error');
       setIsConnected(false);
     };
     
     ws.onclose = () => {
-      console.log(`❌ WebSocket disconnected for ${pair}`);
+      console.log(`❌ WebSocket disconnected`);
       setIsConnected(false);
     };
     
     return () => {
-      ws.close();
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        console.log('🔌 Closing WebSocket connection');
+        ws.close();
+      }
     };
-  }, [pair, loadHistoricalCandles, handlePriceTick]);
+  }, []); // Empty deps - only run once on mount
 
   // Get all candles including current one
   const allCandles = currentCandleRef.current 
