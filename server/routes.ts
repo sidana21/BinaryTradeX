@@ -1157,14 +1157,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     let price = startPrice;
     
-    // Determine volatility by asset type (only 4 assets)
+    // Determine volatility by asset type (only 4 assets) - INCREASED for more visible movement
     let volatility = 0.0001;
+    let trendVolatility = 0.0001;
     if (assetId.includes('BTC')) {
-      volatility = 0.002; // Bitcoin: moderate volatility
+      volatility = 0.004; // Bitcoin: high volatility (increased from 0.002)
+      trendVolatility = 0.002;
     } else if (assetId.includes('GOLD')) {
-      volatility = 0.0015; // Gold: low volatility
+      volatility = 0.003; // Gold: medium volatility (increased from 0.0015)
+      trendVolatility = 0.0015;
     } else {
-      volatility = 0.0008; // Forex: very low volatility
+      volatility = 0.0015; // Forex: low volatility (increased from 0.0008)
+      trendVolatility = 0.0008;
     }
     
     // 🎯 PERSISTENT TREND: Generate 3-5 trend periods to create realistic chart
@@ -1172,11 +1176,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const candlesPerPeriod = Math.floor(count / trendPeriods);
     
     let candleIndex = 0;
+    let momentum = 0; // Track momentum for smoother transitions
     
     for (let period = 0; period < trendPeriods; period++) {
       // Each period has a consistent trend direction
       const trendDirection = Math.random() > 0.5 ? 1 : -1; // Up or Down
-      const trendStrength = 0.0003 + Math.random() * 0.0007; // 0.03% to 0.1% per candle
+      const trendStrength = 0.0005 + Math.random() * 0.0015; // 0.05% to 0.2% per candle (increased)
       const periodCandles = period === trendPeriods - 1 
         ? count - candleIndex  // Last period gets remaining candles
         : candlesPerPeriod;
@@ -1186,16 +1191,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (let i = 0; i < periodCandles && candleIndex < count; i++, candleIndex++) {
         const timestamp = new Date((now - ((count - candleIndex - 1) * candleInterval)) * 1000);
         
-        // Apply consistent trend with small random noise
-        const open = price;
-        const trendMove = trendDirection * trendStrength * open;
-        const noise = (Math.random() - 0.5) * volatility * open * 0.5;
-        const close = open + trendMove + noise;
+        // Smooth transition at period boundaries (first 10% of candles in new period)
+        const transitionProgress = Math.min(i / (periodCandles * 0.1), 1.0);
+        const effectiveTrendStrength = trendStrength * transitionProgress;
         
-        // High/Low with realistic wicks
-        const wickSize = Math.abs(close - open) * (0.5 + Math.random() * 1.5);
-        const high = Math.max(open, close) + wickSize * Math.random() * 0.6;
-        const low = Math.min(open, close) - wickSize * Math.random() * 0.6;
+        // Apply consistent trend with realistic noise and momentum
+        const open = price;
+        const trendMove = trendDirection * effectiveTrendStrength * open;
+        const noise = (Math.random() - 0.5) * trendVolatility * open;
+        
+        // Momentum persistence (80% carry-over for smoother movement)
+        momentum = momentum * 0.8 + noise * 0.2;
+        
+        const close = open + trendMove + momentum;
+        
+        // More realistic wicks based on candle body
+        const bodySize = Math.abs(close - open);
+        const wickVolatility = volatility * open;
+        
+        // Upper wick (varies by direction)
+        const upperWickSize = (bodySize * 0.3 + wickVolatility * (0.5 + Math.random() * 1.5));
+        // Lower wick (varies by direction)
+        const lowerWickSize = (bodySize * 0.3 + wickVolatility * (0.5 + Math.random() * 1.5));
+        
+        const high = Math.max(open, close) + upperWickSize * (0.3 + Math.random() * 0.7);
+        const low = Math.min(open, close) - lowerWickSize * (0.3 + Math.random() * 0.7);
         
         // Determine decimals
         let decimals = 5; // Default for Forex
@@ -1316,16 +1336,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!priceMomentum[pair]) priceMomentum[pair] = 0;
     if (!priceHistory[pair]) priceHistory[pair] = [last];
     
-    // ✅ Determine volatility based on asset type AND time of day
-    let volatility = 0.00002;
+    // ✅ Determine volatility based on asset type AND time of day - INCREASED for more visible movement
+    let volatility = 0.00008; // Increased base volatility
     if (pair.includes('BTC') || pair.includes('ETH') || pair.includes('LTC') || pair.includes('XRP') || pair.includes('BNB') || pair.includes('ADA')) {
-      volatility = 0.0003;
+      volatility = 0.0008; // Crypto: higher volatility (increased from 0.0003)
     } else if (pair.includes('JPY')) {
-      volatility = 0.0008;
+      volatility = 0.0015; // JPY pairs: medium-high volatility (increased from 0.0008)
     } else if (pair.includes('GOLD') || pair.includes('SILVER') || pair.includes('OIL')) {
-      volatility = 0.0003;
+      volatility = 0.0006; // Commodities: medium volatility (increased from 0.0003)
     } else if (pair.includes('SPX') || pair.includes('NDX') || pair.includes('DJI') || pair.includes('DAX') || pair.includes('CAC') || pair.includes('FTSE') || pair.includes('NIKKEI')) {
-      volatility = 0.0003;
+      volatility = 0.0005; // Indices: medium volatility (increased from 0.0003)
     }
     
     // ✅ Time-based volatility (trading session simulation)
@@ -1375,23 +1395,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
     
-    // Realistic price movement with strong mean reversion
+    // Realistic price movement with balanced mean reversion
     const history = priceHistory[pair];
     const recentAvg = history.slice(-20).reduce((a, b) => a + b, 0) / Math.min(20, history.length);
     
-    // Strong mean reversion force (price strongly tends to return to average)
-    const meanReversionForce = (recentAvg - last) * 0.08;
+    // Moderate mean reversion force (price tends to return to average but not too aggressively)
+    const meanReversionForce = (recentAvg - last) * 0.05; // Reduced from 0.08 for more natural drift
     
-    // Random walk component (very small for natural micro-movements)
-    const randomWalk = (Math.random() - 0.5) * volatility * last * 0.5;
+    // Random walk component (increased for more visible micro-movements)
+    const randomWalk = (Math.random() - 0.5) * volatility * last * 1.2; // Increased from 0.5
     
-    // Momentum persistence (80% decay for smoother movement)
-    const momentumDecay = 0.8;
-    const newMomentum = priceMomentum[pair] * momentumDecay + randomWalk * 0.2;
+    // Momentum persistence (85% decay for even smoother movement)
+    const momentumDecay = 0.85; // Increased from 0.8
+    const newMomentum = priceMomentum[pair] * momentumDecay + randomWalk * 0.3; // Increased from 0.2
     priceMomentum[pair] = newMomentum;
     
+    // Add small trend bias for more realistic directional movement
+    const trendBias = (Math.random() - 0.48) * volatility * last * 0.3; // Slight upward bias
+    
     // Combine all forces for natural movement
-    const totalChange = newMomentum + meanReversionForce + (candleManipulation * last);
+    const totalChange = newMomentum + meanReversionForce + trendBias + (candleManipulation * last);
     const newPrice = last + totalChange;
     
     // Update price and history
